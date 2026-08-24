@@ -299,6 +299,26 @@
   .persona-row .field{flex:1;min-width:140px;margin-bottom:0;}
   .persona-row .btn-sm{height:34px;}
 
+  /* ---- ficha de cada solicitante ---- */
+  .sol-card{border:1px solid #e4e7ec;border-radius:11px;padding:10px 12px 4px;margin-bottom:10px;background:#fcfdfe;}
+  .sol-card.f{border-left:3px solid #b4478f;}
+  .sol-card.m{border-left:3px solid var(--azul-700);}
+  .sol-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .sol-head .n{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-suave);flex:1;}
+  .sol-gen{display:flex;gap:4px;}
+  .sol-gen button{border:1px solid #d8dce3;background:#fff;border-radius:7px;padding:3px 9px;font-size:12px;font-weight:700;cursor:pointer;color:var(--tinta-suave);}
+  .sol-gen button.on.f{background:#fdf2f9;border-color:#b4478f;color:#8e2e6d;}
+  .sol-gen button.on.m{background:var(--azul-100);border-color:var(--azul-700);color:var(--azul-700);}
+
+  /* ---- panel de párrafos editados a mano ---- */
+  #edicionesPanel{border-top:1px solid #eee;padding:14px 18px;background:#fffdf6;}
+  #edicionesPanel h3{margin:0 0 4px;font-size:13px;font-weight:800;color:#8a6d1f;}
+  #edicionesPanel .ed-hint{margin:0 0 10px;font-size:12px;color:var(--tinta-suave);}
+  .ed-row{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid #f0e4bd;border-radius:9px;background:#fff;margin-bottom:6px;}
+  .ed-row .ed-tit{flex:1;font-size:12.5px;}
+  .ed-row .ed-tit b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#8a6d1f;margin-bottom:2px;}
+  .ed-row .ed-frag{color:var(--tinta-suave);}
+
   .footer-note{
     max-width:1400px;margin:0 auto;padding:6px 22px 40px;color:#93a2bd;font-size:11.5px;line-height:1.6;
   }
@@ -327,7 +347,7 @@
     </nav>
     <div class="save-bar">
       <span id="avisoGuardado" title="Todo lo que escribes se guarda en este navegador.">Sin cambios guardados aún</span>
-      <button type="button" onclick="borrarGuardado()" title="Borra los datos guardados y deja el formulario en blanco">🗑 Empezar de cero</button>
+      <button type="button" onclick="borrarGuardado()" title="Borra absolutamente todo lo guardado y deja la herramienta como recién abierta">🗑 Iniciar de nuevo</button>
     </div>
   </div>
 </header>
@@ -343,28 +363,27 @@
     <div class="panel-body">
 
       <fieldset>
-        <legend>Género de quien solicita</legend>
-        <div class="gender-toggle">
-          <button type="button" id="btnF" class="active f" onclick="setGenero('F')">♀ Femenino — doña / la solicitante</button>
-          <button type="button" id="btnM" class="m" onclick="setGenero('M')">♂ Masculino — don / el solicitante</button>
+        <legend>Solicitante(s) — <span id="solicitantesCount">1</span></legend>
+        <p class="hint" style="margin:0 0 10px;">
+          Agrega tantos solicitantes como tenga el expediente. El <b>informe</b>, la
+          <b>resolución</b> y la <b>notificación</b> se ajustan a la vez: singular/plural,
+          don/doña y la concordancia de los verbos se calculan solos.
+        </p>
+        <div id="solicitantesWrap"></div>
+        <div class="btn-row" style="margin-top:0">
+          <button type="button" class="btn btn-outline btn-sm" onclick="agregarSolicitante()">+ Agregar otro solicitante</button>
         </div>
+        <!-- Espejos del primer solicitante: los mantiene sincronizados sincronizarEspejosSolicitante()
+             para que la pestaña Oficios y el oficio masivo sigan leyendo val('nombre') / val('rut'). -->
+        <input type="hidden" id="nombre">
+        <input type="hidden" id="rut">
       </fieldset>
 
       <fieldset>
-        <legend>Solicitante</legend>
+        <legend>Expediente</legend>
         <div class="field">
-          <label>Nombre completo</label>
-          <input type="text" id="nombre" placeholder="Ej: Luz Eliana Hernández Barrera">
-        </div>
-        <div class="grid2">
-          <div class="field">
-            <label>RUT / C.I.</label>
-            <input type="text" id="rut" placeholder="12.790.288-7" data-fmt="rut">
-          </div>
-          <div class="field">
-            <label>N° Expediente</label>
-            <input type="text" id="expN" placeholder="235254" data-fmt="digits">
-          </div>
+          <label>N° Expediente</label>
+          <input type="text" id="expN" placeholder="" data-fmt="digits">
         </div>
       </fieldset>
 
@@ -372,7 +391,7 @@
         <legend>Ubicación del inmueble</legend>
         <div class="field">
           <label>Dirección / sector</label>
-          <input type="text" id="ubicacion" placeholder="Calle Ambrosio Castro S/N, Villa Nueva Jerusalén">
+          <input type="text" id="ubicacion" placeholder="">
         </div>
         <div class="grid3">
           <div class="field">
@@ -392,7 +411,7 @@
           <div class="field">
             <label>Superficie aproximada</label>
             <div style="display:flex;gap:6px">
-              <input type="text" inputmode="decimal" id="superficie" placeholder="180,9" data-fmt="sup" style="flex:1">
+              <input type="text" inputmode="decimal" id="superficie" placeholder="" data-fmt="sup" style="flex:1">
               <select id="supUnidad" style="max-width:118px" onchange="onSupUnidadChange()">
                 <option value="m2">m²</option>
                 <option value="ha">hectáreas</option>
@@ -422,15 +441,15 @@
         <div class="grid3">
           <div class="field">
             <label>Fojas</label>
-            <input type="text" id="fojas" placeholder="198 Vuelta">
+            <input type="text" id="fojas" placeholder="">
           </div>
           <div class="field">
             <label>N° inscripción</label>
-            <input type="text" id="numInsc" placeholder="355">
+            <input type="text" id="numInsc" placeholder="">
           </div>
           <div class="field">
             <label>Año</label>
-            <input type="text" id="anioInsc" placeholder="2015">
+            <input type="text" id="anioInsc" placeholder="">
           </div>
         </div>
         <div class="field">
@@ -451,16 +470,16 @@
         <legend>Rol de avalúo fiscal</legend>
         <div class="field">
           <label>Rol de Avalúo Fiscal</label>
-          <input type="text" id="rolAvaluo" placeholder="537-251" data-fmt="rol">
+          <input type="text" id="rolAvaluo" placeholder="" data-fmt="rol">
         </div>
         <div class="grid2">
           <div class="field">
             <label>Avalúo Fiscal Total ($)</label>
-            <input type="text" inputmode="numeric" id="avaluoTotal" placeholder="$14.519.551" data-fmt="money">
+            <input type="text" inputmode="numeric" id="avaluoTotal" placeholder="" data-fmt="money">
           </div>
           <div class="field">
             <label>Avalúo Fiscal Proporcional ($)</label>
-            <input type="text" inputmode="numeric" id="avaluoProporcional" placeholder="$6.409.532" data-fmt="money">
+            <input type="text" inputmode="numeric" id="avaluoProporcional" placeholder="" data-fmt="money">
           </div>
         </div>
         <details class="calc-inline" open>
@@ -469,7 +488,7 @@
             <div>
               <div class="field">
                 <label>Avalúo Fiscal Total del rol ($)</label>
-                <input type="text" inputmode="numeric" id="calcAvaluoTotal" placeholder="$14.519.551" data-fmt="money" oninput="calcular()">
+                <input type="text" inputmode="numeric" id="calcAvaluoTotal" placeholder="" data-fmt="money" oninput="calcular()">
               </div>
               <div class="field">
                 <label>Unidad de superficie</label>
@@ -483,12 +502,12 @@
               </div>
               <div class="field">
                 <label>Superficie total del rol (<span class="uni-sup">m²</span>)</label>
-                <input type="text" inputmode="decimal" id="calcSupTotales" placeholder="4.900" data-fmt="sup" oninput="onCalcSupInput('calcSupTotales','totales')">
+                <input type="text" inputmode="decimal" id="calcSupTotales" placeholder="" data-fmt="sup" oninput="onCalcSupInput('calcSupTotales','totales')">
                 <p class="hint sup-eq" id="calcEqTotales">&nbsp;</p>
               </div>
               <div class="field">
                 <label>Superficie que se pretende regularizar (<span class="uni-sup">m²</span>)</label>
-                <input type="text" inputmode="decimal" id="calcSupReg" placeholder="180,9" data-fmt="sup" oninput="onCalcSupInput('calcSupReg','reg')">
+                <input type="text" inputmode="decimal" id="calcSupReg" placeholder="" data-fmt="sup" oninput="onCalcSupInput('calcSupReg','reg')">
                 <p class="hint sup-eq" id="calcEqReg">&nbsp;</p>
               </div>
               <div class="grid2">
@@ -616,9 +635,12 @@
             <input type="text" id="aniosPosesion" value="10">
           </div>
         </fieldset>
+      </div>
 
+      <div id="bloqueObservaciones">
         <fieldset>
           <legend>Observaciones (marca las que apliquen)</legend>
+          <p class="hint" style="margin:0 0 8px;">Se agregan al apartado <b>Observaciones</b> del informe, tanto si acoge como si rechaza.</p>
 
           <div class="check-row checked" id="row-obs-deslindes">
             <input type="checkbox" id="obs-deslindes" checked onchange="toggleClass('row-obs-deslindes','checked',this.checked); generar();">
@@ -647,6 +669,50 @@
               <div class="sub" id="presuntosWrap"></div>
             </div>
           </div>
+
+          <div class="check-row" id="row-obs-actos">
+            <input type="checkbox" id="obs-actos" onchange="toggleClass('row-obs-actos','checked',this.checked); generar();">
+            <div style="flex:1">
+              <div class="lbl">Verificar en la etapa técnica los actos posesorios declarados (cercos, construcciones, plantaciones)</div>
+              <div class="sub">
+                <label>Actos declarados (si quieres detallarlos)</label>
+                <input type="text" id="obs-actos-detalle" placeholder="" oninput="generar()">
+              </div>
+            </div>
+          </div>
+
+          <div class="check-row" id="row-obs-cabida">
+            <input type="checkbox" id="obs-cabida" onchange="toggleClass('row-obs-cabida','checked',this.checked); generar();">
+            <div><div class="lbl">Verificar en terreno si la superficie solicitada coincide con la del inmueble ya individualizado</div></div>
+          </div>
+
+          <div class="check-row" id="row-obs-desglose">
+            <input type="checkbox" id="obs-desglose" onchange="toggleClass('row-obs-desglose','checked',this.checked); generar();">
+            <div><div class="lbl">Se considera el Avalúo Fiscal Proporcional tras deducir las mejoras, según Avalúo Desglosado del S.I.I. (Punto 4.2.1 Circular N°3/2022)</div></div>
+          </div>
+
+          <div class="check-row" id="row-obs-sinInscripcion">
+            <input type="checkbox" id="obs-sinInscripcion" onchange="toggleClass('row-obs-sinInscripcion','checked',this.checked); generar();">
+            <div><div class="lbl">Consulta de Antecedentes del Bien Raíz obtenida de oficio: el rol no registra inscripción conservatoria</div></div>
+          </div>
+
+          <div class="check-row" id="row-obs-relacionados">
+            <input type="checkbox" id="obs-relacionados" onchange="toggleClass('row-obs-relacionados','checked',this.checked); generar();">
+            <div style="flex:1">
+              <div class="lbl">Dejar constancia de expedientes relacionados con la misma propiedad</div>
+              <div class="sub">
+                <label>N° de expedientes relacionados (sepáralos con coma)</label>
+                <input type="text" id="obs-relacionados-nums" placeholder="" oninput="generar()">
+              </div>
+            </div>
+          </div>
+
+          <div class="check-row" id="row-obs-nuevoExp">
+            <input type="checkbox" id="obs-nuevoExp" onchange="toggleClass('row-obs-nuevoExp','checked',this.checked); generar();">
+            <div style="flex:1">
+              <div class="lbl">Los actos posesorios acompañados sirven para un nuevo expediente por Simple Posesión Material (suele usarse al rechazar)</div>
+            </div>
+          </div>
         </fieldset>
       </div>
 
@@ -665,8 +731,8 @@
             <div style="flex:1">
               <div class="lbl">Subdivisión de hecho / falta título aparente</div>
               <div class="sub grid2">
-                <div class="field"><label>Quién realizó la subdivisión</label><input type="text" id="mo-sub-quien" placeholder="su madre"></div>
-                <div class="field"><label>Año de la subdivisión</label><input type="text" id="mo-sub-anio" placeholder="2018"></div>
+                <div class="field"><label>Quién realizó la subdivisión</label><input type="text" id="mo-sub-quien" placeholder=""></div>
+                <div class="field"><label>Año de la subdivisión</label><input type="text" id="mo-sub-anio" placeholder=""></div>
               </div>
             </div>
           </div>
@@ -682,7 +748,7 @@
               <div class="lbl">Exceso de avalúo fiscal (límite legal Art. 1° D.L. 2695/79)</div>
               <div class="sub">
                 <label>Tope legal en pesos (déjalo vacío para usar el de la calculadora)</label>
-                <input type="text" id="mo-avaluo-tope" placeholder="$25.006.951" data-fmt="money">
+                <input type="text" id="mo-avaluo-tope" placeholder="" data-fmt="money">
               </div>
             </div>
           </div>
@@ -692,7 +758,7 @@
             <div style="flex:1">
               <div class="lbl">Loteo irregular / sin recepción DOM</div>
               <div class="sub grid2">
-                <div class="field"><label>N° de Oficio DOM</label><input type="text" id="mo-loteo-oficio" placeholder="123"></div>
+                <div class="field"><label>N° de Oficio DOM</label><input type="text" id="mo-loteo-oficio" placeholder=""></div>
                 <div class="field"><label>Fecha del oficio</label><input type="date" id="mo-loteo-fecha"></div>
               </div>
             </div>
@@ -709,7 +775,7 @@
               <div class="lbl">Herencia remota / vínculo no acreditado con el titular inscrito</div>
               <div class="sub">
                 <label>Causante (parentesco y nombre)</label>
-                <input type="text" id="mo-her-causante" placeholder="su padre, don XXXXX">
+                <input type="text" id="mo-her-causante" placeholder="">
               </div>
             </div>
           </div>
@@ -720,7 +786,7 @@
               <div class="lbl">Documento acompañado no constituye título aparente válido (sin firmas, timbres o individualización del ministro de fe)</div>
               <div class="sub">
                 <label>Nombre / tipo del documento acompañado</label>
-                <input type="text" id="mo-titulo-doc" placeholder="Acta de Acuerdo de Loteo / Promesa de Compraventa">
+                <input type="text" id="mo-titulo-doc" placeholder="">
               </div>
             </div>
           </div>
@@ -731,7 +797,7 @@
               <div class="lbl">No se acompaña el instrumento público o privado que acredite el título alegado</div>
               <div class="sub">
                 <label>Título alegado por el solicitante</label>
-                <input type="text" id="mo-sininst-titulo" placeholder="compraventa de derechos y acciones del 39,73%">
+                <input type="text" id="mo-sininst-titulo" placeholder="">
               </div>
             </div>
           </div>
@@ -742,7 +808,7 @@
               <div class="lbl">Antecesor detentaba la calidad de mero tenedor (Art. 714 C.C. / Art. 9° D.L. 2695)</div>
               <div class="sub">
                 <label>Antecesor (parentesco y nombre)</label>
-                <input type="text" id="mo-mero-antecesor" placeholder="su padre">
+                <input type="text" id="mo-mero-antecesor" placeholder="">
               </div>
             </div>
           </div>
@@ -753,7 +819,7 @@
               <div class="lbl">No se acredita el vínculo de parentesco con el titular original de los derechos (falta certificado de nacimiento)</div>
               <div class="sub">
                 <label>Titular original de los derechos</label>
-                <input type="text" id="mo-parentesco-titular" placeholder="su abuelo, don XXXXX">
+                <input type="text" id="mo-parentesco-titular" placeholder="">
               </div>
             </div>
           </div>
@@ -763,8 +829,8 @@
             <div style="flex:1">
               <div class="lbl">Discrepancia entre la superficie solicitada y la superficie acreditada en el avalúo / título</div>
               <div class="sub grid2">
-                <div class="field"><label>Superficie que se pretende sanear</label><input type="text" id="mo-cabida-pretendida" placeholder="25 hectáreas"></div>
-                <div class="field"><label>Superficie que consta en el avalúo</label><input type="text" id="mo-cabida-avaluo" placeholder="6,3 hectáreas"></div>
+                <div class="field"><label>Superficie que se pretende sanear</label><input type="text" id="mo-cabida-pretendida" placeholder=""></div>
+                <div class="field"><label>Superficie que consta en el avalúo</label><input type="text" id="mo-cabida-avaluo" placeholder=""></div>
               </div>
             </div>
           </div>
@@ -775,7 +841,7 @@
               <div class="lbl">Comunidad / organización sin individualización de cuotas o asignación de lotes</div>
               <div class="sub">
                 <label>Organización / grupo habitacional</label>
-                <input type="text" id="mo-comunidad-nombre" placeholder="Grupo Habitacional Altos de Cordillerilla">
+                <input type="text" id="mo-comunidad-nombre" placeholder="">
               </div>
             </div>
           </div>
@@ -786,7 +852,62 @@
               <div class="lbl">Antecedentes de data reciente que no acreditan la extensión temporal de la posesión exigida (5 años)</div>
               <div class="sub">
                 <label>Antecedente aportado y su fecha</label>
-                <input type="text" id="mo-antig-detalle" placeholder="certificado de pago de luz del año 2026">
+                <input type="text" id="mo-antig-detalle" placeholder="">
+              </div>
+            </div>
+          </div>
+
+          <div class="check-row" id="row-bienFiscal">
+            <input type="checkbox" id="mo-bienFiscal" onchange="onMotivo(this,'row-bienFiscal')">
+            <div style="flex:1">
+              <div class="lbl">El inmueble detenta la calidad de propiedad fiscal — impedimento absoluto (Art. 8° inc. 2° D.L. 2695/79)</div>
+              <div class="sub grid2">
+                <div class="field"><label>Rol que el solicitante indicó</label><input type="text" id="mo-fiscal-rolIndicado" placeholder="" data-fmt="rol"></div>
+                <div class="field"><label>Rol que realmente corresponde al retazo</label><input type="text" id="mo-fiscal-rolReal" placeholder="" data-fmt="rol"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="check-row" id="row-loteoConsulta">
+            <input type="checkbox" id="mo-loteoConsulta" onchange="onMotivo(this,'row-loteoConsulta')">
+            <div style="flex:1">
+              <div class="lbl">Loteo o subdivisión irregular constatado por consulta obligatoria (Puntos 4.4 y 1.1.1 Circular N°3/2022)</div>
+              <div class="sub grid2">
+                <div class="field"><label>Institución que informó</label><input type="text" id="mo-loteoConsulta-inst" placeholder=""></div>
+                <div class="field"><label>N° de oficio de respuesta</label><input type="text" id="mo-loteoConsulta-oficio" placeholder=""></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="check-row" id="row-noEsParte">
+            <input type="checkbox" id="mo-noEsParte" onchange="onMotivo(this,'row-noEsParte')">
+            <div style="flex:1">
+              <div class="lbl">El solicitante no es parte del contrato o título que acompaña</div>
+              <div class="sub">
+                <div class="field"><label>Documento acompañado</label><input type="text" id="mo-noEsParte-doc" placeholder=""></div>
+                <div class="field"><label>Partes que sí comparecen en ese documento</label><input type="text" id="mo-noEsParte-partes" placeholder=""></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="check-row" id="row-excedePequena">
+            <input type="checkbox" id="mo-excedePequena" onchange="onMotivo(this,'row-excedePequena')">
+            <div style="flex:1">
+              <div class="lbl">No se acredita que se trate de una «pequeña propiedad raíz»: hay superficie poseída sin respaldo de avalúo (Art. 1° D.L. 2695/79)</div>
+              <div class="sub grid2">
+                <div class="field"><label>Superficie que se pretende sanear</label><input type="text" id="mo-excede-pretendida" placeholder=""></div>
+                <div class="field"><label>Superficie con avalúo acreditado</label><input type="text" id="mo-excede-conAvaluo" placeholder=""></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="check-row" id="row-tituloInformal">
+            <input type="checkbox" id="mo-tituloInformal" onchange="onMotivo(this,'row-tituloInformal')">
+            <div style="flex:1">
+              <div class="lbl">Título aparente de carácter informal: sin ministro de fe, sin fecha cierta ni cabida del inmueble</div>
+              <div class="sub">
+                <div class="field"><label>Documento acompañado</label><input type="text" id="mo-informal-doc" placeholder=""></div>
+                <div class="field"><label>Entre quiénes se celebró</label><input type="text" id="mo-informal-partes" placeholder=""></div>
               </div>
             </div>
           </div>
@@ -813,7 +934,7 @@
         <legend>Resolución exenta</legend>
         <div class="field">
           <label>N° de resolución (después de "E-")</label>
-          <input type="text" id="resN" placeholder="0" data-fmt="digits">
+          <input type="text" id="resN" placeholder="" data-fmt="digits">
         </div>
       </fieldset>
     </div>
@@ -828,10 +949,21 @@
         </div>
       </fieldset>
       <fieldset>
+        <legend>Destinatario</legend>
+        <div class="field">
+          <label>¿A quién se dirige esta notificación?</label>
+          <select id="notifDestino" onchange="generar()"></select>
+          <p class="hint" style="margin:4px 0 0">
+            Con varios solicitantes puedes emitir una carta por cada uno (cambiando aquí el
+            destinatario) o una sola dirigida a todos.
+          </p>
+        </div>
+      </fieldset>
+      <fieldset>
         <legend>Oficio</legend>
         <div class="field">
           <label>N° de Ordinario (después de "E-")</label>
-          <input type="text" id="ordN" placeholder="0" data-fmt="digits">
+          <input type="text" id="ordN" placeholder="" data-fmt="digits">
         </div>
         <div class="field">
           <label>Dirección de notificación (si difiere de la ubicación del inmueble)</label>
@@ -845,7 +977,7 @@
       <div class="preview-toolbar">
         <div class="status" id="statusLine">Completa los datos del expediente para generar el documento.</div>
         <div class="btn-row" style="margin-top:0">
-          <button class="btn btn-outline btn-sm" onclick="regenerarDesdeFormulario()" title="Descarta tus ediciones manuales y regenera el texto desde el formulario">↻ Actualizar vista previa</button>
+          <button class="btn btn-outline btn-sm" onclick="regenerarDesdeFormulario()" title="Descarta TODAS tus ediciones manuales de este documento y lo regenera desde el formulario">↻ Regenerar todo</button>
           <button class="btn btn-outline btn-sm" onclick="copiar()">⧉ Copiar texto</button>
           <button class="btn btn-red btn-sm" onclick="descargar()">⬇ Descargar .txt</button>
         </div>
@@ -856,6 +988,10 @@
           <textarea id="preview" spellcheck="false" oninput="onPreviewInput()"></textarea>
         </div>
       </div>
+
+      <!-- Párrafos que el usuario editó a mano: se conservan aunque cambien los datos
+           del formulario, y desde aquí se puede devolver cada uno a su texto automático. -->
+      <div id="edicionesPanel" style="display:none"></div>
 
       <div class="panel-head" style="border-top:1px solid #eee;">
         <h2>Campos para copiar al portal (Materia / Fecha / De / A / Cuerpo)</h2>
@@ -936,7 +1072,7 @@
       <fieldset>
         <legend>Encabezado del oficio</legend>
         <div class="grid2">
-          <div class="field"><label>N° de Ordinario (después de "SE07-")</label><input type="text" id="ofOrdN" placeholder="120" data-fmt="digits"></div>
+          <div class="field"><label>N° de Ordinario (después de "SE07-")</label><input type="text" id="ofOrdN" placeholder="" data-fmt="digits"></div>
           <div class="field"><label>Año</label><input type="text" id="ofOrdAnio" value="2026"></div>
         </div>
         <p class="hint" style="margin:6px 0 0">
@@ -957,26 +1093,26 @@
       <fieldset id="ofFieldsetPersona">
         <legend>Solicitante</legend>
         <div class="grid2">
-          <div class="field"><label>Nombre completo</label><input type="text" id="ofNombre" placeholder="Lidia Verónica Aravena Navarrete"></div>
+          <div class="field"><label>Nombre completo</label><input type="text" id="ofNombre" placeholder=""></div>
           <div class="field"><label>Género</label>
             <select id="ofGenero"><option value="F">Femenino (doña)</option><option value="M">Masculino (don)</option></select>
           </div>
         </div>
         <div class="grid2">
-          <div class="field"><label>C.I. N°</label><input type="text" id="ofCi" placeholder="9.636.035-5" data-fmt="rut"></div>
-          <div class="field"><label>N° de Expediente</label><input type="text" id="ofExpediente" placeholder="211674" data-fmt="digits"></div>
+          <div class="field"><label>C.I. N°</label><input type="text" id="ofCi" placeholder="" data-fmt="rut"></div>
+          <div class="field"><label>N° de Expediente</label><input type="text" id="ofExpediente" placeholder="" data-fmt="digits"></div>
         </div>
       </fieldset>
 
       <fieldset id="ofFieldsetInmueble">
         <legend>Inmueble</legend>
-        <div class="field"><label>Ubicación / nombre del predio</label><input type="text" id="ofUbicacion" placeholder="SECTOR LAS VERTIENTES, CAMINO A SAN JUAN"></div>
+        <div class="field"><label>Ubicación / nombre del predio</label><input type="text" id="ofUbicacion" placeholder=""></div>
         <div class="grid2">
           <div class="field"><label>Comuna</label><select id="ofComuna" onchange="onOfComunaChange()"></select></div>
           <div class="field"><label>Provincia</label><input type="text" id="ofProvincia" readonly></div>
         </div>
         <div class="grid2">
-          <div class="field"><label>Superficie (m²)</label><input type="text" inputmode="decimal" id="ofSuperficie" placeholder="500" data-fmt="sup"></div>
+          <div class="field"><label>Superficie (m²)</label><input type="text" inputmode="decimal" id="ofSuperficie" placeholder="" data-fmt="sup"></div>
           <div class="field"><label>Modo de adquisición</label>
             <select id="ofModoAdq">
               <option value="comite">Compraventa de derechos a comité / loteo</option>
@@ -995,9 +1131,9 @@
       <fieldset id="ofFieldsetInscripcion">
         <legend>Inscripción conservatoria</legend>
         <div class="grid3">
-          <div class="field"><label>Fojas</label><input type="text" id="ofFojas" placeholder="2159 vuelta"></div>
-          <div class="field"><label>N° Inscripción</label><input type="text" id="ofNumInsc" placeholder="3604"></div>
-          <div class="field"><label>Año</label><input type="text" id="ofAnioInsc" placeholder="2016"></div>
+          <div class="field"><label>Fojas</label><input type="text" id="ofFojas" placeholder=""></div>
+          <div class="field"><label>N° Inscripción</label><input type="text" id="ofNumInsc" placeholder=""></div>
+          <div class="field"><label>Año</label><input type="text" id="ofAnioInsc" placeholder=""></div>
         </div>
         <div class="field">
           <label>Conservador de Bienes Raíces de</label>
@@ -1005,12 +1141,12 @@
           <input type="text" id="ofCbr" style="margin-top:6px;display:none;" placeholder="Escribe el Conservador">
         </div>
         <div class="field" id="ofFieldRegistro"><label>Registro (Conservador)</label><input type="text" id="ofRegistro" value="Propiedad"></div>
-        <div class="field" id="ofFieldEmail"><label>Correo de contacto (Conservador)</label><input type="text" id="ofEmailContacto" placeholder="nombre@mbienes.cl"></div>
+        <div class="field" id="ofFieldEmail"><label>Correo de contacto (Conservador)</label><input type="text" id="ofEmailContacto" placeholder=""></div>
       </fieldset>
 
       <fieldset id="ofFieldsetRol">
         <legend>Rol de avalúo</legend>
-        <div class="field"><label>Rol de Avalúo</label><input type="text" id="ofRolAvaluo" placeholder="540-148" data-fmt="rol"></div>
+        <div class="field"><label>Rol de Avalúo</label><input type="text" id="ofRolAvaluo" placeholder="" data-fmt="rol"></div>
       </fieldset>
 
       <fieldset>
@@ -1021,7 +1157,7 @@
         </div>
         <div class="field">
           <label>Iniciales de distribución</label>
-          <input type="text" id="ofIniciales" value="FBP/MBM/KTU">
+          <input type="text" id="ofIniciales" value="" placeholder="Se calculan solas si lo dejas en blanco">
         </div>
       </fieldset>
 
@@ -1079,6 +1215,13 @@ const OFICIO_TEMPLATES = {
    ESTADO
    ============================================================ */
 const state = {
+  /* --- Solicitantes del expediente. Puede haber uno o varios (comunidades
+         hereditarias, grupos habitacionales, cónyuges). El género y el número
+         del grupo se calculan desde esta lista y se aplican a la vez al
+         informe, a la resolución y a la notificación. --- */
+  solicitantes: [ {nombre:'', genero:'F', rut:'', domicilio:''} ],
+  /* genero: se mantiene como espejo del género del grupo, porque la pestaña
+     Oficios y el oficio masivo lo siguen leyendo. */
   genero: 'F',
   resultado: 'si',
   esFiscal: false,
@@ -1088,9 +1231,22 @@ const state = {
   oficiosInit: false,
   /* --- orden en que se numeran los motivos de rechazo (letras b, c, d...) --- */
   motivosOrden: [],
-  /* --- conserva ediciones manuales de la vista previa entre pestañas --- */
-  previewDirty: { informe:false, resolucion:false, notificacion:false },
-  previewText:  { informe:'', resolucion:'', notificacion:'' },
+  /* --- EDICIONES MANUALES POR PÁRRAFO -----------------------------------
+     Cada documento se arma como una lista de bloques (párrafos) con un id
+     estable. Si editas un párrafo a mano sólo se guarda ESE párrafo, así al
+     cambiar un dato del formulario o agregar una observación se regenera
+     únicamente lo que corresponde y el resto de tu redacción queda intacta.
+       edits[id]  = texto que escribiste (si es '' el párrafo queda suprimido)
+       extras[]   = párrafos nuevos que agregaste tú, anclados tras un id
+     --------------------------------------------------------------------- */
+  docEdits: {
+    informe:      { edits:{}, extras:[] },
+    resolucion:   { edits:{}, extras:[] },
+    notificacion: { edits:{}, extras:[] }
+  },
+  /* Última lista de bloques mostrada en cada pestaña (para poder detectar qué
+     párrafo cambió cuando escribes en la vista previa). */
+  lastRender: { informe:[], resolucion:[], notificacion:[] },
   lastPartes: null,
   /* --- expedientes del OFICIO MASIVO (una fila de la tabla por expediente) --- */
   masivoFilas: [],
@@ -1213,11 +1369,11 @@ function sincronizarCbrSelect(selectId, inputId){
 
 /* ============================================================
    FORMATO AUTOMÁTICO DE NÚMEROS
-   data-fmt="rut"    -> 12.790.288-7
-   data-fmt="money"  -> $14.519.551
+   data-fmt="rut"    -> nn.nnn.nnn-d
+   data-fmt="money"  -> $nn.nnn.nnn
    data-fmt="digits" -> solo dígitos
-   data-fmt="rol"    -> 537-251
-   data-fmt="sup"    -> 4.900 · 180,9 · 0,0181   (superficies)
+   data-fmt="rol"    -> nnn-nnn
+   data-fmt="sup"    -> n.nnn · nnn,n · n,nnnn   (superficies)
    ============================================================ */
 function parseNum(v){
   if(v===null||v===undefined) return NaN;
@@ -1367,6 +1523,172 @@ function onPostulanteSelectChange(){
 }
 
 /* ============================================================
+   SOLICITANTES (uno o varios en el mismo expediente)
+   ============================================================ */
+function solicitanteVacio(){ return {nombre:'', genero:'F', rut:'', domicilio:''}; }
+
+/* Lista siempre con al menos un solicitante. */
+function sols(){
+  if(!Array.isArray(state.solicitantes) || state.solicitantes.length===0){
+    state.solicitantes = [solicitanteVacio()];
+  }
+  return state.solicitantes;
+}
+function variosSolicitantes(){ return sols().length > 1; }
+
+/* Género del grupo: femenino sólo si TODOS son mujeres (regla del castellano
+   y la que siguen los informes: "los solicitantes" en cuanto hay un hombre). */
+function generoGrupo(){
+  const s = sols();
+  return s.every(p => p.genero === 'F') ? 'F' : 'M';
+}
+
+function renderSolicitantes(){
+  const wrap = q('solicitantesWrap');
+  if(!wrap) return;
+  const lista = sols();
+  const cont = q('solicitantesCount');
+  if(cont) cont.textContent = String(lista.length);
+
+  wrap.innerHTML = lista.map((p,i)=>{
+    const esF = p.genero === 'F';
+    return `<div class="sol-card ${esF?'f':'m'}">
+      <div class="sol-head">
+        <span class="n">${lista.length>1 ? 'Solicitante '+(i+1) : 'Solicitante'}</span>
+        <span class="sol-gen">
+          <button type="button" class="f ${esF?'on':''}" onclick="setGeneroSolicitante(${i},'F')">♀ doña</button>
+          <button type="button" class="m ${!esF?'on':''}" onclick="setGeneroSolicitante(${i},'M')">♂ don</button>
+        </span>
+        ${lista.length>1 ? `<button type="button" class="btn btn-outline btn-sm" onclick="quitarSolicitante(${i})" title="Quitar este solicitante">✕</button>` : ''}
+      </div>
+      <div class="field">
+        <label>Nombre completo</label>
+        <input type="text" value="${escapeAttr(p.nombre)}" placeholder=""
+               oninput="updateSolicitante(${i},'nombre',this.value)">
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>RUT / C.I.</label>
+          <input type="text" value="${escapeAttr(p.rut)}" placeholder=""
+                 oninput="this.value=formatRutEscribiendo(this.value); updateSolicitante(${i},'rut',this.value)"
+                 onblur="this.value=formatRutValue(this.value); updateSolicitante(${i},'rut',this.value)">
+        </div>
+        <div class="field">
+          <label>Domicilio para notificar <span class="hint">(opcional)</span></label>
+          <input type="text" value="${escapeAttr(p.domicilio)}" placeholder=""
+                 oninput="updateSolicitante(${i},'domicilio',this.value)">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  poblarNotifDestino();
+}
+
+function escapeAttr(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function agregarSolicitante(){
+  sols().push(solicitanteVacio());
+  renderSolicitantes();
+  generar();
+}
+function quitarSolicitante(i){
+  const lista = sols();
+  if(lista.length <= 1) return;
+  lista.splice(i,1);
+  renderSolicitantes();
+  generar();
+}
+function setGeneroSolicitante(i, gen){
+  sols()[i].genero = gen;
+  renderSolicitantes();
+  generar();
+}
+function updateSolicitante(i, campo, valor){
+  sols()[i][campo] = valor;
+  if(campo === 'nombre') poblarNotifDestino();
+  generar();
+}
+
+/* La pestaña Oficios y el oficio masivo siguen leyendo val('nombre'), val('rut')
+   y state.genero: se mantienen sincronizados con el primer solicitante. */
+function sincronizarEspejosSolicitante(){
+  const p = sols()[0];
+  if(q('nombre')) q('nombre').value = p.nombre || '';
+  if(q('rut')) q('rut').value = p.rut || '';
+  state.genero = generoGrupo();
+}
+
+/* Desplegable de destinatario de la notificación: todos, o cada solicitante. */
+function poblarNotifDestino(){
+  const sel = q('notifDestino');
+  if(!sel) return;
+  const lista = sols();
+  const previo = sel.value;
+  let html = `<option value="todos">${lista.length>1 ? 'Todos los solicitantes (una sola carta)' : 'El solicitante'}</option>`;
+  if(lista.length > 1){
+    lista.forEach((p,i)=>{
+      const etiqueta = p.nombre ? p.nombre : 'Solicitante ' + (i+1);
+      html += `<option value="${i}">Sólo ${escapeAttr(etiqueta)}</option>`;
+    });
+  }
+  sel.innerHTML = html;
+  /* si el destinatario elegido ya no existe se vuelve a "todos" */
+  sel.value = (previo && sel.querySelector(`option[value="${previo}"]`)) ? previo : 'todos';
+}
+
+/* Solicitantes efectivamente destinatarios de la notificación. */
+function solicitantesNotificados(){
+  const v = val('notifDestino');
+  const lista = sols();
+  if(v === '' || v === 'todos') return lista;
+  const i = parseInt(v,10);
+  return isNaN(i) || !lista[i] ? lista : [lista[i]];
+}
+
+/* ---------- redacciones de la lista de solicitantes ---------- */
+
+/* "don JUAN PÉREZ, C.I. N° 1.111.111-1; y doña ANA SOTO, C.I. N° 2.222.222-2" */
+function listaSolicitantesConRut(personas){
+  const lista = (personas || sols()).map(p=>{
+    const trato = p.genero === 'F' ? 'doña' : 'don';
+    return `${trato} ${upper(blank(p.nombre,'____________________'))}, C.I. N° ${blank(p.rut,'____________')}`;
+  });
+  return unirConY(lista, '; ');
+}
+
+/* Para la línea MATERIA y los títulos: sólo nombres, en mayúsculas. */
+function nombresSolicitantes(personas){
+  const lista = (personas || sols()).map(p=> upper(blank(p.nombre,'____________________')));
+  return unirConY(lista, ', ');
+}
+
+/* Con tratamiento, como en los informes de varios solicitantes:
+   "DON JUAN PÉREZ; Y DOÑA ANA SOTO" */
+function nombresSolicitantesConTrato(personas){
+  const lista = (personas || sols()).map(p=>{
+    const trato = p.genero === 'F' ? 'DOÑA' : 'DON';
+    return `${trato} ${upper(blank(p.nombre,'____________________'))}`;
+  });
+  return unirConY(lista, '; ', 'Y');
+}
+
+/* Une los elementos de una lista con el separador indicado y la conjunción antes
+   del último. Con punto y coma se conserva el separador ("A; B; y C", que es la
+   forma que usan los informes al enumerar solicitantes con su C.I.); con coma se
+   omite, como corresponde en castellano ("A, B y C").
+   El conector se puede pedir en mayúsculas para los títulos del documento. */
+function unirConY(lista, sep, conector){
+  if(lista.length === 0) return '';
+  if(lista.length === 1) return lista[0];
+  const conj = (conector || 'y') + ' ';
+  const previos = lista.slice(0,-1).join(sep);
+  const ultimo = lista[lista.length-1];
+  const cierre = (sep.trim() === ';') ? sep + conj : ' ' + conj;
+  return previos + cierre + ultimo;
+}
+
+/* ============================================================
    PRESUNTOS DUEÑOS (notificación Circular N°3/2022)
    ============================================================ */
 const FORMAS_CALIDAD = {
@@ -1392,15 +1714,15 @@ function renderPresuntos(){
 
   state.presuntos.forEach((p,i)=>{
     html += `<div class="persona-row">
-      <div class="field"><label>Nombre</label><input type="text" value="${p.nombre.replace(/"/g,'&quot;')}" placeholder="Arcadio José Bustamante Villagra" oninput="updatePresunto(${i},'nombre',this.value)"></div>
+      <div class="field"><label>Nombre</label><input type="text" value="${p.nombre.replace(/"/g,'&quot;')}" placeholder="" oninput="updatePresunto(${i},'nombre',this.value)"></div>
       <div class="field" style="max-width:130px;"><label>Género</label>
         <select onchange="updatePresunto(${i},'genero',this.value)">
           <option value="M" ${p.genero!=='F'?'selected':''}>Masculino</option>
           <option value="F" ${p.genero==='F'?'selected':''}>Femenino</option>
         </select>
       </div>
-      <div class="field"><label>C.I. N°</label><input type="text" value="${p.ci.replace(/"/g,'&quot;')}" placeholder="6.607.818-3" oninput="this.value=formatRutEscribiendo(this.value); updatePresunto(${i},'ci',this.value)" onblur="this.value=formatRutValue(this.value); updatePresunto(${i},'ci',this.value)"></div>
-      <div class="field"><label>Domicilio</label><input type="text" value="${p.domicilio.replace(/"/g,'&quot;')}" placeholder="calle Serrano N°30, Linares" oninput="updatePresunto(${i},'domicilio',this.value)"></div>
+      <div class="field"><label>C.I. N°</label><input type="text" value="${p.ci.replace(/"/g,'&quot;')}" placeholder="" oninput="this.value=formatRutEscribiendo(this.value); updatePresunto(${i},'ci',this.value)" onblur="this.value=formatRutValue(this.value); updatePresunto(${i},'ci',this.value)"></div>
+      <div class="field"><label>Domicilio</label><input type="text" value="${p.domicilio.replace(/"/g,'&quot;')}" placeholder="" oninput="updatePresunto(${i},'domicilio',this.value)"></div>
       <button type="button" class="btn btn-outline btn-sm" onclick="quitarPresunto(${i})" title="Quitar">✕</button>
     </div>`;
   });
@@ -1425,20 +1747,60 @@ function updatePresunto(i,campo,valor){
 /* ============================================================
    TEXTO: OBSERVACIONES (informe positivo)
    ============================================================ */
-function textoObservaciones(){
+/* Devuelve las observaciones como bloques independientes [{id, texto}].
+   Cada una es su propio párrafo, de modo que al marcar o desmarcar una
+   observación sólo se agrega o quita ESE párrafo del documento. */
+function bloquesObservaciones(){
   const bloques = [];
+  const add = (id, texto)=> bloques.push({id:'obs-'+id, texto:'- '+texto});
+  const marcado = (id)=> q(id) && q(id).checked;
 
-  if(q('obs-deslindes') && q('obs-deslindes').checked){
-    bloques.push(`Verificar deslindes y cabida, que no se lesionen derechos de terceros y verificar la posesión del inmueble por hechos positivos, determinando la época desde la cual se producen, lo cual será constatado en la etapa técnica correspondiente.`);
+  if(marcado('obs-deslindes')){
+    add('deslindes', `Verificar deslindes y cabida, que no se lesionen derechos de terceros y verificar la posesión del inmueble por hechos positivos, determinando la época desde la cual se producen, lo cual será constatado en la etapa técnica correspondiente.`);
   }
 
-  if(q('obs-oficios') && q('obs-oficios').checked){
+  if(marcado('obs-oficios')){
     const comuna = val('comuna') || '____________';
-    bloques.push(`Se oficia a las siguientes instituciones: Dirección de Obras Municipal de ${comuna}, SERVIU y MINVU, solicitando antecedentes sobre situación urbanística del inmueble objeto de regularización.`);
+    add('oficios', `Se oficia a las siguientes instituciones: Dirección de Obras Municipal de ${comuna}, SERVIU y MINVU, solicitando antecedentes sobre situación urbanística del inmueble objeto de regularización.`);
   }
 
-  if(q('obs-cercado') && q('obs-cercado').checked){
-    bloques.push(`Asimismo, se pide dejar constancia de la existencia o no de cercado y separación total de los predios colindantes, como también si ${solicitanteMin()} ha efectuado o no en el predio, actos positivos que prueben la posesión del suelo, de los que trata el artículo 4º inc.1º del D.L. Nº2695/79, ello en relación con el artículo 925 del Código Civil.`);
+  if(marcado('obs-cercado')){
+    add('cercado', `Asimismo, se pide dejar constancia de la existencia o no de cercado y separación total de los predios colindantes, como también si ${solicitanteMin()} ${v('ha','han')} efectuado o no en el predio, actos positivos que prueben la posesión del suelo, de los que trata el artículo 4º inc.1º del D.L. Nº2695/79, ello en relación con el artículo 925 del Código Civil.`);
+  }
+
+  if(marcado('obs-actos')){
+    const detalle = val('obs-actos-detalle');
+    add('actos', detalle
+      ? `Verificar los actos posesorios declarados, tales como ${detalle}, los que deberán ser constatados en la etapa técnica correspondiente.`
+      : `Verificar los actos posesorios declarados, tales como cercos, construcciones y plantaciones, entre otros, los que deberán ser constatados en la etapa técnica correspondiente.`);
+  }
+
+  if(marcado('obs-cabida')){
+    add('cabida', `Se solicita que en la respectiva etapa técnica se verifique en terreno si la superficie del predio solicitado en regularización es coincidente con la existente en el inmueble ya individualizado, así como la delimitación material de la porción efectivamente ocupada y los actos positivos de posesión ejercidos en los términos del artículo 4° del D.L. Nº 2.695/79.`);
+  }
+
+  if(marcado('obs-desglose')){
+    add('desglose', `Se deja constancia de que para efectos del procedimiento de saneamiento se considera el Avalúo Fiscal Proporcional resultante tras la deducción de las mejoras. Esta determinación técnica se advierte en el Avalúo Desglosado emitido por el Servicio de Impuestos Internos, en cuanto a la partida correspondiente a edificaciones, todo según lo instruido en el Punto 4.2.1 de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales.`);
+  }
+
+  if(marcado('obs-sinInscripcion')){
+    add('sinInscripcion', `Este Servicio obtiene de oficio el documento Consulta de Antecedentes del Bien Raíz correspondiente al Rol de Avalúo Fiscal Nº ${blank(val('rolAvaluo'),'______')}, de la comuna de ${blank(val('comuna'),'____________')}, el cual da cuenta de que no existe inscripción conservatoria vigente a la fecha del presente informe.`);
+  }
+
+  if(marcado('obs-relacionados')){
+    const nums = (val('obs-relacionados-nums') || '')
+      .split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+    if(nums.length > 1){
+      add('relacionados', `Este Servicio deja constancia de que existen ${nums.length} expedientes relacionados con la propiedad objeto de regularización: ${unirConY(nums, ', ')}.`);
+    } else if(nums.length === 1){
+      add('relacionados', `Este Servicio deja constancia de que existe un expediente relacionado con la propiedad objeto de regularización: ${nums[0]}.`);
+    } else {
+      add('relacionados', `Este Servicio deja constancia de que existen expedientes relacionados con la propiedad objeto de regularización: ____________.`);
+    }
+  }
+
+  if(marcado('obs-nuevoExp')){
+    add('nuevoExp', `Este Servicio indica que los actos posesorios que se acompañan en este expediente son idóneos para el procedimiento de regularización en un nuevo expediente, esta vez considerando la Simple Posesión Material.`);
   }
 
   if(q('obs-notif') && q('obs-notif').checked){
@@ -1463,29 +1825,71 @@ function textoObservaciones(){
       ? listaPersonas[0]
       : listaPersonas.slice(0,-1).join('; ') + '; y ' + listaPersonas[listaPersonas.length-1];
 
-    bloques.push(`En conformidad a instrucciones impartidas por Circular N°3 de fecha 21 de noviembre de 2022 de la Subsecretaría de Bienes Nacionales, según su documentación acompañada, y a fin de evitar la afectación de terceros que pudieran tener derechos sobre el inmueble a regularizar, se debe realizar notificación ${articulo} ${calidad}: ${lista}.`);
+    add('notif', `En conformidad a instrucciones impartidas por Circular N°3 de fecha 21 de noviembre de 2022 de la Subsecretaría de Bienes Nacionales, según su documentación acompañada, y a fin de evitar la afectación de terceros que pudieran tener derechos sobre el inmueble a regularizar, se debe realizar notificación ${articulo} ${calidad}: ${lista}.`);
   }
 
-  if(val('obsExtra')) bloques.push(val('obsExtra'));
+  if(val('obsExtra')){
+    /* El texto libre puede traer varios párrafos: se parte en bloques para que
+       cada uno se pueda editar por separado en la vista previa. */
+    val('obsExtra').split(/\n{2,}/).map(t=>t.trim()).filter(Boolean).forEach((t,i)=>{
+      bloques.push({id:'obs-extra-'+i, texto: t.startsWith('-') ? t : '- '+t});
+    });
+  }
 
-  if(bloques.length===0) return '- ....';
-  return bloques.map(b=>`- ${b}`).join('\n\n');
+  if(bloques.length===0) bloques.push({id:'obs-vacia', texto:'- ....'});
+  return bloques;
+}
+
+/* ¿Hay alguna observación que mostrar? (para decidir si va el título
+   "Observaciones:" en el informe que rechaza) */
+function hayObservaciones(){
+  const b = bloquesObservaciones();
+  return !(b.length === 1 && b[0].id === 'obs-vacia');
 }
 
 /* ============================================================
    HELPERS DE GÉNERO Y TEXTO
    ============================================================ */
-function g(masc, fem){ return state.genero === 'F' ? fem : masc; }
-function donDona(){ return g('don','doña'); }
-function DonDona(){ return g('Don','Doña'); }
-function elLa(){ return g('el','la'); }
-function ElLa(){ return g('El','La'); }
-function solicitanteMin(){ return elLa()+' solicitante'; }
-function SolicitanteMay(){ return ElLa()+' solicitante'; }
-function alALa(){ return g('al solicitante','a la solicitante'); }
-function porSiMismo(){ return g('por sí mismo','por sí misma'); }
-function elElla(){ return g('él','ella'); }
-function senorSenora(){ return g('SEÑOR','SEÑORA'); }
+/* g() = concordancia de género del grupo. Si hay varios solicitantes devuelve
+   la forma plural, de modo que TODO el texto (informe, resolución y
+   notificación) concuerda solo. */
+function g(masc, fem, mascPlural, femPlural){
+  const esF = generoGrupo() === 'F';
+  if(variosSolicitantes() && (mascPlural !== undefined)){
+    return esF ? (femPlural !== undefined ? femPlural : mascPlural) : mascPlural;
+  }
+  return esF ? fem : masc;
+}
+
+/* v() = concordancia del verbo: v('posee','poseen') */
+function v(singular, plural){ return variosSolicitantes() ? plural : singular; }
+
+function donDona(){ return g('don','doña','los','las'); }
+function DonDona(){ return g('Don','Doña','Los','Las'); }
+function elLa(){ return g('el','la','los','las'); }
+function ElLa(){ return g('El','La','Los','Las'); }
+function solicitanteMin(){ return g('el solicitante','la solicitante','los solicitantes','las solicitantes'); }
+function SolicitanteMay(){ return g('El solicitante','La solicitante','Los solicitantes','Las solicitantes'); }
+function alALa(){ return g('al solicitante','a la solicitante','a los solicitantes','a las solicitantes'); }
+function delSolicitante(){ return g('del solicitante','de la solicitante','de los solicitantes','de las solicitantes'); }
+function deLSolicitante(){ return g('de el solicitante','de la solicitante','de los solicitantes','de las solicitantes'); }
+function elInteresado(){ return g('el interesado','la interesada','los interesados','las interesadas'); }
+function delInteresado(){ return g('del interesado','de la interesada','de los interesados','de las interesadas'); }
+function porSiMismo(){ return g('por sí mismo','por sí misma','por sí mismos','por sí mismas'); }
+function elElla(){ return g('él','ella','ellos','ellas'); }
+function senorSenora(){ return g('SEÑOR','SEÑORA','SEÑORES','SEÑORAS'); }
+function herederoCalidad(){ return g('heredero','heredera','herederos','herederas'); }
+function poseedorCalidad(){ return g('poseedor regular','poseedora regular','poseedores regulares','poseedoras regulares'); }
+
+/* Tratamiento + nombre para las fórmulas que nombran al solicitante en singular
+   ("doña ANA SOTO") o a todos en plural ("doña ANA SOTO; y don LUIS DÍAZ"). */
+function tratamientoYNombre(personas){
+  const lista = (personas || sols()).map(p=>{
+    const trato = p.genero === 'F' ? 'doña' : 'don';
+    return `${trato} ${upper(blank(p.nombre,'____________________'))}`;
+  });
+  return unirConY(lista, '; ');
+}
 
 function upper(s){ return (s||'').toUpperCase(); }
 function fixDel(s){ return (s||'').replace(/\bDel\b/g, 'del'); }
@@ -1543,9 +1947,11 @@ mainTabs.forEach(btn=>{
 });
 
 function setGenero(gen){
-  state.genero = gen;
-  q('btnF').classList.toggle('active', gen==='F');
-  q('btnM').classList.toggle('active', gen==='M');
+  /* El género ya no es un botón global: lo define cada solicitante en su ficha.
+     Se conserva la función porque cambia el género del primer solicitante y así
+     no se rompe ningún guardado antiguo que la invocara. */
+  sols()[0].genero = gen;
+  renderSolicitantes();
   generar();
 }
 function setFiscal(esFiscal){
@@ -1599,58 +2005,58 @@ function renderModoSub(){
   const modo = val('modoAdq');
   const wrap = q('modoSubFields');
   const commonDate = `<div class="field"><label>Fecha del acto</label><input type="date" id="modoFecha"></div>`;
-  const commonNotario = `<div class="field"><label>Notario/a y comuna</label><input type="text" id="modoNotario" placeholder="don Marcelo Morales Molina, comuna de Parral"></div>`;
-  const commonRepertorio = `<div class="field"><label>N° Repertorio</label><input type="text" id="modoRepertorio" placeholder="1632/2024"></div>`;
-  const commonContraparte = `<div class="field"><label>Adquiere de (nombre)</label><input type="text" id="modoContraparte" placeholder="doña Eliada Filomena Ormeño Navarrete"></div>`;
-  const commonPorc = `<div class="field"><label>% de derechos adquiridos</label><input type="text" id="modoPorcentaje" placeholder="50"></div>`;
+  const commonNotario = `<div class="field"><label>Notario/a y comuna</label><input type="text" id="modoNotario" placeholder=""></div>`;
+  const commonRepertorio = `<div class="field"><label>N° Repertorio</label><input type="text" id="modoRepertorio" placeholder=""></div>`;
+  const commonContraparte = `<div class="field"><label>Adquiere de (nombre)</label><input type="text" id="modoContraparte" placeholder=""></div>`;
+  const commonPorc = `<div class="field"><label>% de derechos adquiridos</label><input type="text" id="modoPorcentaje" placeholder=""></div>`;
 
   let html = '';
   if(modo==='comite'){
     html = `<div class="grid2">
-      <div class="field"><label>Nombre del Comité / Loteo</label><input type="text" id="modoComite" placeholder="Villa Valle Hermoso"></div>
-      <div class="field"><label>N° de lote</label><input type="text" id="modoLote" placeholder="58"></div>
+      <div class="field"><label>Nombre del Comité / Loteo</label><input type="text" id="modoComite" placeholder=""></div>
+      <div class="field"><label>N° de lote</label><input type="text" id="modoLote" placeholder=""></div>
     </div>`;
   } else if(modo==='compraventa' || modo==='cesion'){
     html = `<div class="grid2">${commonDate}${commonRepertorio}</div><div class="grid2">${commonNotario}${commonContraparte}</div>${commonPorc}`;
   } else if(modo==='compraventaCuota'){
     html = `<div class="grid2">${commonDate}${commonRepertorio}</div><div class="grid2">${commonNotario}${commonContraparte}</div>${commonPorc}
-    <div class="field"><label>Comuna / lugar del inmueble a mayor extensión (si difiere)</label><input type="text" id="modoLugarMayorExt" placeholder="Ex-Distrito Pelluhue de la ex Subdelegación de Curanipe"></div>`;
+    <div class="field"><label>Comuna / lugar del inmueble a mayor extensión (si difiere)</label><input type="text" id="modoLugarMayorExt" placeholder=""></div>`;
   } else if(modo==='promesa'){
     html = `<div class="grid2">${commonDate}${commonNotario}</div>${commonContraparte}${commonPorc}`;
   } else if(modo==='adjudicacion'){
     html = `<div class="grid2">${commonDate}${commonNotario}</div><div class="grid2">${commonRepertorio}
-      <div class="field"><label>Comunidad / grupo habitacional con quien se liquida</label><input type="text" id="modoComite" placeholder="Grupo Habitacional Tierra Linda"></div></div>
-      <div class="field"><label>Nombre del inmueble de mayor cabida / lote resultante</label><input type="text" id="modoContraparte" placeholder="Lote Dos, resultante de la división del Lote A"></div>${commonPorc}`;
+      <div class="field"><label>Comunidad / grupo habitacional con quien se liquida</label><input type="text" id="modoComite" placeholder=""></div></div>
+      <div class="field"><label>Nombre del inmueble de mayor cabida / lote resultante</label><input type="text" id="modoContraparte" placeholder=""></div>${commonPorc}`;
   } else if(modo==='herencia'){
     html = `<div class="grid2">
-      <div class="field"><label>Causante(s) (nombre)</label><input type="text" id="modoContraparte" placeholder="don Raimundo José Bustamante Rojas y doña Filomena Luzmila Villagra Pinto"></div>
+      <div class="field"><label>Causante(s) (nombre)</label><input type="text" id="modoContraparte" placeholder=""></div>
       <div class="field"><label>Fecha de la autorización de los demás herederos</label><input type="date" id="modoFecha"></div>
     </div>`;
   } else if(modo==='conyugal'){
     html = `<div class="grid2">${commonDate}${commonNotario}</div>
-      <div class="field"><label>Cónyuge con quien disolvió la sociedad conyugal</label><input type="text" id="modoContraparte" placeholder="don XXXXXX"></div>${commonPorc}`;
+      <div class="field"><label>Cónyuge con quien disolvió la sociedad conyugal</label><input type="text" id="modoContraparte" placeholder=""></div>${commonPorc}`;
   } else if(modo==='donacion'){
     html = `<div class="grid2">
-      <div class="field"><label>Donante (persona o sucesión)</label><input type="text" id="modoContraparte" placeholder="la Sucesión Verdugo Verdugo"></div>
+      <div class="field"><label>Donante (persona o sucesión)</label><input type="text" id="modoContraparte" placeholder=""></div>
       <div class="field"><label>Fecha del instrumento de donación</label><input type="date" id="modoFecha"></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>Instrumento que da cuenta de la donación</label><input type="text" id="modoInstrumento" placeholder="oficio eclesiástico / carta de cesión"></div>
-      <div class="field"><label>Fin o destino de la donación</label><input type="text" id="modoFin" placeholder="ensanche del cementerio parroquial"></div>
+      <div class="field"><label>Instrumento que da cuenta de la donación</label><input type="text" id="modoInstrumento" placeholder=""></div>
+      <div class="field"><label>Fin o destino de la donación</label><input type="text" id="modoFin" placeholder=""></div>
     </div>
-    <div class="field"><label>Actos posesorios que acreditan el uso (hechos positivos)</label><input type="text" id="modoActos" placeholder="cierre perimetral, construcciones y mantención permanente"></div>`;
+    <div class="field"><label>Actos posesorios que acreditan el uso (hechos positivos)</label><input type="text" id="modoActos" placeholder=""></div>`;
   } else if(modo==='privado'){
     html = `<div class="grid2">
-      <div class="field"><label>Vendedor (nombre)</label><input type="text" id="modoContraparte" placeholder="don Carlos Alexis Sepúlveda"></div>
+      <div class="field"><label>Vendedor (nombre)</label><input type="text" id="modoContraparte" placeholder=""></div>
       <div class="field"><label>Fecha de entrega material</label><input type="date" id="modoFecha"></div>
     </div>
-    <div class="field"><label>Actos posesorios acompañados (fotografías)</label><input type="text" id="modoActos" placeholder="siembra de vegetales, gallinero y mantención en la propiedad"></div>`;
+    <div class="field"><label>Actos posesorios acompañados (fotografías)</label><input type="text" id="modoActos" placeholder=""></div>`;
   } else if(modo==='simple'){
     html = `<div class="grid2">
       <div class="field"><label>¿Desde cuándo posee el inmueble?</label><input type="date" id="modoFecha"></div>
-      <div class="field"><label>Medios de acreditación</label><input type="text" id="modoActosSimple" placeholder="declaraciones juradas y fotografías"></div>
+      <div class="field"><label>Medios de acreditación</label><input type="text" id="modoActosSimple" placeholder=""></div>
     </div>
-    <div class="field"><label>Actos posesorios concretos</label><input type="text" id="modoActosSimpleDetalle" placeholder="instalación de cercos, construcción de vivienda y mantención del predio"></div>`;
+    <div class="field"><label>Actos posesorios concretos</label><input type="text" id="modoActosSimpleDetalle" placeholder=""></div>`;
   } else {
     html = `<p class="hint">Redacta el modo de adquisición directamente en el campo "Observaciones adicionales" o edita el texto generado en la vista previa.</p>`;
   }
@@ -1679,6 +2085,15 @@ function tituloModoAdquisicion(){
   return titulos[modo] || '';
 }
 
+/* Fundamento que los informes agregan tras describir el título con que se
+   adquirió la posesión: encuadra el instrumento como "título aparente" y habilita
+   la suma de posesiones. Se usa en los modos de adquisición que descansan en un
+   instrumento escrito. */
+function fundamentoTituloAparente(tipoInstrumento){
+  const inst = tipoInstrumento || 'dicho instrumento';
+  return `De este modo, ${inst} constituye un "título aparente" en los términos del Artículo 3° inciso segundo del Decreto Ley N° 2.695, al tratarse de un antecedente escrito que manifiesta la voluntad de transferir el dominio y que hace presumible la continuidad de las posesiones, permitiendo ${alALa()} agregar a su posesión la de ${v('su antecesor','sus antecesores')} conforme al Punto 4.2.4 de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales.`;
+}
+
 function textoModoAdquisicion(){
   const modo = val('modoAdq');
   const fojas = blank(val('fojas'));
@@ -1689,24 +2104,24 @@ function textoModoAdquisicion(){
   if(modo==='comite'){
     const comite = blank(val('modoComite'));
     const lote = blank(val('modoLote'));
-    return `${SolicitanteMay()} adquirió la posesión material del inmueble mediante una compraventa de derechos al Comité ${comite}, para los efectos de lo indicado se acompaña un Certificado de Acreditación Único Definitivo de Loteo emitido por dicha organización, específicamente consta en los antecedentes que es el lote N° ${lote}. El Título de dominio que ampara el inmueble de mayor extensión rola a Fojas ${fojas}, Nº ${numInsc} del año ${anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${cbr}. ${SolicitanteMay()} declara como suyos los actos posesorios materiales tales como la instalación de cercos y la limpieza del inmueble, actos que constituyen hechos positivos de dominio de acuerdo con lo establecido en el Artículo 4° del Decreto Ley N° 2.695 de 1979 en relación con el Artículo 925 del Código Civil.`;
+    return `${SolicitanteMay()} ${v('adquirió','adquirieron')} la posesión material del inmueble mediante una compraventa de derechos al Comité ${comite}, para los efectos de lo indicado se acompaña un Certificado de Acreditación Único Definitivo de Loteo emitido por dicha organización, específicamente consta en los antecedentes que es el lote N° ${lote}. El Título de dominio que ampara el inmueble de mayor extensión rola a Fojas ${fojas}, Nº ${numInsc} del año ${anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${cbr}. ${SolicitanteMay()} ${v('declara','declaran')} como suyos los actos posesorios materiales tales como la instalación de cercos y la limpieza del inmueble, actos que constituyen hechos positivos de dominio de acuerdo con lo establecido en el Artículo 4° del Decreto Ley N° 2.695 de 1979 en relación con el Artículo 925 del Código Civil.`;
   }
   if(modo==='compraventa'){
-    return `${SolicitanteMay()} ampara su posesión en Escritura Pública de Compraventa, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${elLa()} requirente adquiere de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos que recaen en el inmueble ya singularizado y que es objeto de este procedimiento de regularización.`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Escritura Pública de Compraventa, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${elLa()} ${v('requirente adquiere','requirentes adquieren')} de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos que recaen en el inmueble ya singularizado y que es objeto de este procedimiento de regularización. ${fundamentoTituloAparente('la escritura pública de compraventa')}`;
   }
   if(modo==='promesa'){
-    return `${SolicitanteMay()} ampara su posesión en Contrato de Promesa de Compraventa, celebrado con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, donde ${elLa()} requirente adquiere de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca.`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Contrato de Promesa de Compraventa, celebrado con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, donde ${elLa()} ${v('requirente adquiere','requirentes adquieren')} de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca. ${fundamentoTituloAparente('el contrato de promesa de compraventa')}`;
   }
   if(modo==='cesion'){
-    return `${SolicitanteMay()} ampara su posesión en Cesión de Derechos celebrada con fecha ${fechaProsa(val('modoFecha'))}, en la notaría de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde adquiere de parte de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos que a ${elLa()} cedente le correspondían en la propiedad a mayor extensión donde se encuentra el inmueble que se pretende regularizar mediante el presente procedimiento administrativo.`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Cesión de Derechos celebrada con fecha ${fechaProsa(val('modoFecha'))}, en la notaría de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${v('adquiere','adquieren')} de parte de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos que a ${elLa()} cedente le correspondían en la propiedad a mayor extensión donde se encuentra el inmueble que se pretende regularizar mediante el presente procedimiento administrativo. ${fundamentoTituloAparente('la cesión de derechos')}`;
   }
   if(modo==='compraventaCuota'){
     const lugar = val('modoLugarMayorExt');
-    return `${SolicitanteMay()} indica haber adquirido la posesión material del inmueble a regularizar en virtud de Título Aparente de Contrato de Compraventa de Cuotas de Dominio, celebrado con fecha ${fechaProsa(val('modoFecha'))} ante Notario Público ${blank(val('modoNotario'))}, con repertorio N° ${blank(val('modoRepertorio'))}. En virtud de dicho instrumento, ${blank(val('modoContraparte'))} vende, cede y transfiere ${alALa()} el total de las acciones, derechos, partes o cuotas de dominio que a la parte vendedora corresponda o pueda corresponderle${lugar? ` sobre el inmueble ubicado en ${lugar}`:''}, del cual forma parte el retazo objeto de este procedimiento, equivalente a un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos del inmueble a mayor extensión.`;
+    return `${SolicitanteMay()} ${v('indica','indican')} haber adquirido la posesión material del inmueble a regularizar en virtud de Título Aparente de Contrato de Compraventa de Cuotas de Dominio, celebrado con fecha ${fechaProsa(val('modoFecha'))} ante Notario Público ${blank(val('modoNotario'))}, con repertorio N° ${blank(val('modoRepertorio'))}. En virtud de dicho instrumento, ${blank(val('modoContraparte'))} vende, cede y transfiere ${alALa()} el total de las acciones, derechos, partes o cuotas de dominio que a la parte vendedora corresponda o pueda corresponderle${lugar? ` sobre el inmueble ubicado en ${lugar}`:''}, del cual forma parte el retazo objeto de este procedimiento, equivalente a un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos del inmueble a mayor extensión. ${fundamentoTituloAparente('el contrato de compraventa de cuotas de dominio')}`;
   }
   if(modo==='adjudicacion'){
     const comite = blank(val('modoComite'),'la comunidad respectiva');
-    return `${SolicitanteMay()} ampara su posesión en Escritura Pública de Liquidación y Adjudicación de Comunidad celebrada con ${comite}, con fecha ${fechaProsa(val('modoFecha'))}, en la Notaría Pública de ${blank(val('modoNotario'))}, inscrita bajo el repertorio N° ${blank(val('modoRepertorio'))}, mediante la cual adquirió derechos equivalentes al ${blank(val('modoPorcentaje'),'____')}% sobre el inmueble denominado ${blank(val('modoContraparte'),'el inmueble de mayor cabida')}. Conforme a dicha adjudicación, le corresponde una superficie aproximada de ${blank(val('superficie'),'____')} m², porción que ocupa materialmente y respecto de la cual solicita regularización, pretendiendo obtener un título singular respecto del retazo que efectivamente posee dentro del inmueble común.`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Escritura Pública de Liquidación y Adjudicación de Comunidad celebrada con ${comite}, con fecha ${fechaProsa(val('modoFecha'))}, en la Notaría Pública de ${blank(val('modoNotario'))}, inscrita bajo el repertorio N° ${blank(val('modoRepertorio'))}, mediante la cual ${v('adquirió','adquirieron')} derechos equivalentes al ${blank(val('modoPorcentaje'),'____')}% sobre el inmueble denominado ${blank(val('modoContraparte'),'el inmueble de mayor cabida')}. Conforme a dicha adjudicación, ${v('le corresponde','les corresponde')} una superficie aproximada de ${blank(val('superficie'),'____')} m², porción que ${v('ocupa','ocupan')} materialmente y respecto de la cual ${v('solicita','solicitan')} regularización, pretendiendo obtener un título singular respecto del retazo que efectivamente ${v('posee','poseen')} dentro del inmueble común. ${fundamentoTituloAparente('la escritura pública de liquidación y adjudicación')}`;
   }
   if(modo==='donacion'){
     const donante = blank(val('modoContraparte'));
@@ -1716,16 +2131,16 @@ function textoModoAdquisicion(){
     return `El origen de la posesión se sustenta en una donación material realizada por ${donante} a favor de ${solicitanteMin()}, según consta en ${instrumento} de fecha ${fechaProsa(val('modoFecha'))}, que da cuenta de la aceptación de un retazo de terreno destinado a ${fin}. Este documento constituye un "título aparente" en los términos del Artículo 3° inciso segundo del D.L. N° 2.695, al ser un antecedente escrito que hace presumible la continuidad de la posesión y la voluntad de traslación del dominio. La posesión se manifiesta mediante hechos positivos de aquellos a que solo da derecho el dominio, según el Artículo 925 del Código Civil, constando en el expediente la realización de ${actos}.`;
   }
   if(modo==='herencia'){
-    return `${SolicitanteMay()} funda su pretensión en la calidad de heredero(a) de la sucesión de ${blank(val('modoContraparte'))}, cuya Inscripción Especial de Herencia rola a fojas ${fojas}, N° ${numInsc} del año ${anioInsc} en el Conservador de Bienes Raíces de ${cbr}. Se acompaña un documento de "Autorización" con fecha ${fechaProsa(val('modoFecha'))}, suscrito por los demás herederos y copropietarios, quienes reconocen que ${solicitanteMin()} detenta la posesión material exclusiva sobre el inmueble. Estos antecedentes constituyen, en base al Art. 3° del D.L. 2695, un título aparente idóneo para presumir la continuidad de la posesión en los términos del Artículo 3° inciso 2° de la ley.`;
+    return `${SolicitanteMay()} ${v('funda','fundan')} su pretensión en la calidad de ${herederoCalidad()} de la sucesión de ${blank(val('modoContraparte'))}, cuya Inscripción Especial de Herencia rola a fojas ${fojas}, N° ${numInsc} del año ${anioInsc} en el Conservador de Bienes Raíces de ${cbr}. Se acompaña un documento de "Autorización" con fecha ${fechaProsa(val('modoFecha'))}, suscrito por los demás herederos y copropietarios, quienes reconocen que ${solicitanteMin()} ${v('detenta','detentan')} la posesión material exclusiva sobre el inmueble. Estos antecedentes constituyen, en base al Art. 3° del D.L. 2695, un título aparente idóneo para presumir la continuidad de la posesión en los términos del Artículo 3° inciso 2° de la ley.`;
   }
   if(modo==='conyugal'){
-    return `${SolicitanteMay()} ampara su posesión en Escritura Pública de Liquidación de Bienes en Sociedad Conyugal, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, donde ${elLa()} requirente se adjudica de la disolución de la sociedad conyugal conformada con ${blank(val('modoContraparte'))}, el ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca.`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Escritura Pública de Liquidación de Bienes en Sociedad Conyugal, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, donde ${elLa()} ${v('requirente se adjudica','requirentes se adjudican')} de la disolución de la sociedad conyugal conformada con ${blank(val('modoContraparte'))}, el ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca. ${fundamentoTituloAparente('la escritura pública de liquidación de la sociedad conyugal')}`;
   }
   if(modo==='privado'){
-    return `${SolicitanteMay()} ampara su posesión en documento privado de venta de terreno, donde se declara por parte de ${blank(val('modoContraparte'))} que vende, cede y transfiere ${alALa()} un retazo de aproximadamente ${blank(val('superficie'),'____')} metros cuadrados, cuya entrega material se efectuó el ${fechaProsa(val('modoFecha'))}. Al respecto, se acompañan al expediente fotografías que acreditan actos posesorios, tales como ${blank(val('modoActos'),'cercos y mantención del predio')}.`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en documento privado de venta de terreno, donde se declara por parte de ${blank(val('modoContraparte'))} que vende, cede y transfiere ${alALa()} un retazo de aproximadamente ${blank(val('superficie'),'____')} metros cuadrados, cuya entrega material se efectuó el ${fechaProsa(val('modoFecha'))}. Al respecto, se acompañan al expediente fotografías que acreditan actos posesorios, tales como ${blank(val('modoActos'),'cercos y mantención del predio')}, hechos positivos de aquellos a que sólo da derecho el dominio en los términos del Artículo 4° del Decreto Ley N° 2.695 de 1979, en relación con el Artículo 925 del Código Civil. ${fundamentoTituloAparente('el documento privado de venta')}`;
   }
   if(modo==='simple'){
-    return `${SolicitanteMay()} funda su posesión exclusivamente en hechos materiales, continuos y exclusivos ejercidos sobre el inmueble desde el ${fechaProsa(val('modoFecha'))}, sin contar con título traslaticio de dominio que ampare su ocupación, lo cual acredita mediante ${blank(val('modoActosSimple'),'declaraciones juradas y fotografías')} que dan cuenta de actos posesorios tales como ${blank(val('modoActosSimpleDetalle'),'cercos, construcciones y mantención del predio')}, hechos que constituyen actos positivos de dominio de acuerdo con lo establecido en el Artículo 4° del Decreto Ley N° 2.695 de 1979, en relación con el Artículo 925 del Código Civil.`;
+    return `${SolicitanteMay()} ${v('funda','fundan')} su posesión exclusivamente en hechos materiales, continuos y exclusivos ejercidos sobre el inmueble desde el ${fechaProsa(val('modoFecha'))}, sin contar con título traslaticio de dominio que ampare su ocupación, lo cual ${v('acredita','acreditan')} mediante ${blank(val('modoActosSimple'),'declaraciones juradas y fotografías')} que dan cuenta de actos posesorios tales como ${blank(val('modoActosSimpleDetalle'),'cercos, construcciones y mantención del predio')}, hechos que constituyen actos positivos de dominio de acuerdo con lo establecido en el Artículo 4° del Decreto Ley N° 2.695 de 1979, en relación con el Artículo 925 del Código Civil.`;
   }
   return `[Describe aquí el modo de adquisición de la posesión — puedes editar este párrafo libremente en la vista previa.]`;
 }
@@ -1738,58 +2153,111 @@ const LETRAS = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p',
 /* Devuelve un objeto { claveMotivo: textoRedactado } solo con los motivos marcados. */
 function motivosTextos(){
   const out = {};
+  const F = blank(val('fojas'));
+  const N = blank(val('numInsc'));
+  const A = blank(val('anioInsc'));
+  const C = blank(val('cbr'));
+  /* Fórmula que identifica la inscripción de dominio, se repite en varios motivos. */
+  const inscripcion = `Fojas ${F}, N° ${N} del año ${A} del Registro de Propiedad del Conservador de Bienes Raíces de ${C}`;
+  const circular = 'de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales';
+  const rechazo11 = 'procediendo el rechazo en virtud del Artículo 11° inciso primero del Decreto Ley N° 2.695 de 1979';
 
   if(q('mo-subdivision').checked){
     const quien = blank(val('mo-sub-quien'),'su causante');
     const anio = blank(val('mo-sub-anio'),'____');
-    out.subdivision = `SUBDIVISIÓN DE HECHO. ${SolicitanteMay()} fundamenta su derecho en una "subdivisión de hecho" realizada por ${quien} en el año ${anio}, no obstante, al momento de la solicitud no acompaña instrumento público o privado alguno que acredite legalmente dicha transferencia de derechos, lo que constituye una infracción al Artículo 3° inciso segundo del Decreto Ley N° 2.695 de 1979, toda vez que no consta dentro del procedimiento algún "título aparente" que vincule al interesado con la inscripción de dominio que rola a Fojas ${blank(val('fojas'))}, N° ${blank(val('numInsc'))} del año ${blank(val('anioInsc'))} del Registro de Propiedad del Conservador de Bienes Raíces de ${blank(val('cbr'))}.`;
+    out.subdivision = `SUBDIVISIÓN DE HECHO. ${SolicitanteMay()} ${v('fundamenta','fundamentan')} su derecho en una "subdivisión de hecho" realizada por ${quien} en el año ${anio}, no obstante, al momento de la solicitud no ${v('acompaña','acompañan')} instrumento público o privado alguno que acredite legalmente dicha transferencia de derechos, lo que constituye una infracción al Artículo 3° inciso segundo del Decreto Ley N° 2.695 de 1979, toda vez que no consta dentro del procedimiento algún "título aparente" que vincule ${alALa()} con la inscripción de dominio que rola a ${inscripcion}. En consecuencia, no es posible habilitar la suma de posesiones de los antecesores ni tener por acreditado el plazo de cinco años de posesión material, continua y exclusiva que exige el Artículo 2° N° 1 del citado Decreto Ley, ${rechazo11}.`;
   }
+
   if(q('mo-acreditacion').checked){
-    out.acreditacion = `En análisis de los antecedentes, no se ha logrado acreditar el cumplimiento del requisito de posesión material continua y exclusiva por un plazo no inferior a cinco años, exigido por el Artículo 2° N° 1 del Decreto Ley N° 2.695/1979. Conforme al Artículo 4° del Decreto Ley N° 2.695/1979 y el Artículo 925 del Código Civil, la posesión debe probarse mediante hechos positivos de dominio, carga que no se satisface con la declaración jurada de colindantes, ni solamente con fotografías, ya que estas no cubren el periodo legal requerido ni denotan actos materiales reales y prolongados en el tiempo. Al no acompañarse los antecedentes que el Punto 4.1.2 letra e) de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales califica como necesarios, tales como comprobantes de pago de servicios básicos o recibos de impuesto territorial, ${solicitanteMin()} debería haber acompañado antecedentes que permitan presumir en forma fehaciente la realización de actos posesorios y mejoras sobre la propiedad por un período de 5 años a lo menos anteriores a la fecha de ingreso de su solicitud de regularización.`;
+    out.acreditacion = `En análisis de los antecedentes, no se ha logrado acreditar el cumplimiento del requisito de posesión material continua y exclusiva por un plazo no inferior a cinco años, exigido por el Artículo 2° N° 1 del Decreto Ley N° 2.695/1979. Conforme al Artículo 4° del Decreto Ley N° 2.695/1979 y el Artículo 925 del Código Civil, la posesión debe probarse mediante hechos positivos de dominio, carga que no se satisface con la declaración jurada de colindantes, ni solamente con fotografías, ya que estas no cubren el periodo legal requerido ni denotan actos materiales reales y prolongados en el tiempo. Al no acompañarse los antecedentes que el Punto 4.1.2 letra e) ${circular} califica como necesarios, tales como comprobantes de pago de servicios básicos o recibos de impuesto territorial, ${solicitanteMin()} ${v('debería','deberían')} haber acompañado antecedentes que permitan presumir en forma fehaciente la realización de actos posesorios y mejoras sobre la propiedad por un período de 5 años a lo menos anteriores a la fecha de ingreso de su solicitud de regularización.`;
   }
+
   if(q('mo-avaluo').checked){
     const tope = val('mo-avaluo-tope') || (window.__ultimoTope || '$____________');
     const factor = val('tipoBien')==='Urbano' ? '380' : '800';
-    out.avaluo = `Que, señala ${solicitanteMin()} que la propiedad se encuentra amparada por el Rol de Avalúo Fiscal Nº ${blank(val('rolAvaluo'))}, comuna de ${blank(val('comuna'))}, con un Avalúo Fiscal total de ${money(val('avaluoTotal'))||'$____________'}, excediendo el máximo permitido por el D.L. 2695/79 de ${factor} Unidades Tributarias Mensuales para inmuebles ${val('tipoBien').toLowerCase()||'____'}es, cuyo monto a la fecha de ingreso no puede exceder de ${tope}. De acuerdo a lo indicado, ${solicitanteMin()} no cumpliría el requisito establecido en el Artículo 1° del D.L. 2695/79, que establece que "Los poseedores materiales de bienes raíces rurales o urbanos, cuyo avalúo fiscal para el pago del impuesto territorial sea inferior a ochocientas o a trescientas ochenta unidades tributarias, respectivamente, que carezcan de título inscrito, podrán solicitar de la Dirección de Tierras y Bienes Nacionales que se les reconozca la calidad de poseedores regulares de dichos bienes (...)".`;
+    out.avaluo = `Que, ${v('señala','señalan')} ${solicitanteMin()} que la propiedad se encuentra amparada por el Rol de Avalúo Fiscal Nº ${blank(val('rolAvaluo'))}, comuna de ${blank(val('comuna'))}, con un Avalúo Fiscal total de ${money(val('avaluoTotal'))||'$____________'}, excediendo el máximo permitido por el D.L. 2695/79 de ${factor} Unidades Tributarias Mensuales para inmuebles ${val('tipoBien').toLowerCase()||'____'}es, cuyo monto a la fecha de ingreso no puede exceder de ${tope}. De acuerdo a lo indicado, ${solicitanteMin()} no ${v('cumpliría','cumplirían')} el requisito establecido en el Artículo 1° del D.L. 2695/79, que establece que "Los poseedores materiales de bienes raíces rurales o urbanos, cuyo avalúo fiscal para el pago del impuesto territorial sea inferior a ochocientas o a trescientas ochenta unidades tributarias, respectivamente, que carezcan de título inscrito, podrán solicitar de la Dirección de Tierras y Bienes Nacionales que se les reconozca la calidad de poseedores regulares de dichos bienes (...)". Al no tratarse de una pequeña propiedad raíz en los términos del citado Artículo 1°, el inmueble queda fuera del ámbito de aplicación de este procedimiento de excepción, ${rechazo11}.`;
   }
+
   if(q('mo-loteo').checked){
-    out.loteo = `Del análisis efectuado a los antecedentes acompañados se ha podido estimar que ni ${solicitanteMin()} ni el inmueble cumplen con los requisitos exigidos para la aplicación del Procedimiento Administrativo contenido en el D.L. N° 2.695/79, toda vez que, de acuerdo a lo señalado en Oficio N° ${blank(val('mo-loteo-oficio'))} de fecha ${fechaProsa(val('mo-loteo-fecha'))}, emanado de la Dirección de Obras Municipales de la I. Municipalidad de ${blank(val('comuna'))}, se indica que el Rol que ampara el inmueble corresponde a un loteo irregular, que no se encuentra acogido al procedimiento de saneamiento de la Ley 20.234 ni cuenta con Recepción Provisoria por la Dirección de Obras Municipales respectiva, no contando con las obras mínimas de urbanización exigidas por los Artículos 55, 134 y siguientes de la Ley General de Urbanismo y Construcciones.`;
+    out.loteo = `Del análisis efectuado a los antecedentes acompañados se ha podido estimar que ni ${solicitanteMin()} ni el inmueble ${v('cumple','cumplen')} con los requisitos exigidos para la aplicación del Procedimiento Administrativo contenido en el D.L. N° 2.695/79, toda vez que, de acuerdo a lo señalado en Oficio N° ${blank(val('mo-loteo-oficio'))} de fecha ${fechaProsa(val('mo-loteo-fecha'))}, emanado de la Dirección de Obras Municipales de la I. Municipalidad de ${blank(val('comuna'))}, se indica que el Rol que ampara el inmueble corresponde a un loteo irregular, que no se encuentra acogido al procedimiento de saneamiento de la Ley 20.234 ni cuenta con Recepción Provisoria por la Dirección de Obras Municipales respectiva, no contando con las obras mínimas de urbanización exigidas por los Artículos 55, 134 y siguientes de la Ley General de Urbanismo y Construcciones. Conforme al Punto 1.1.1 ${circular}, el procedimiento del Decreto Ley N° 2.695 es de aplicación excepcional y no puede ser utilizado para consolidar núcleos urbanos al margen de la normativa urbanística, ${rechazo11}.`;
   }
+
+  if(q('mo-loteoConsulta').checked){
+    const inst = blank(val('mo-loteoConsulta-inst'),'la Dirección de Obras Municipales respectiva');
+    const oficio = val('mo-loteoConsulta-oficio');
+    out.loteoConsulta = `En cumplimiento del Principio de Coordinación y del deber de consulta obligatoria establecido en el Punto 4.4 ${circular}, ${inst} ha informado${oficio? ` mediante Oficio N° ${oficio}`:' mediante oficio'} que el predio forma parte de un loteo o subdivisión irregular. Conforme a la jurisprudencia administrativa y a lo instruido en el Punto 1.1.1 ${circular}, el procedimiento del Decreto Ley N° 2.695 es de aplicación excepcional y no puede utilizarse para vulnerar la normativa urbanística ni para consolidar núcleos urbanos al margen de la Ley General de Urbanismo y Construcciones. Al constatarse que el terreno proviene de una división de hecho no autorizada y que no se encuentra acogido a las leyes de excepción para saneamiento de loteos, en particular la Ley N° 20.234, la solicitud debe ser denegada de plano en virtud del Artículo 11° inciso primero del Decreto Ley N° 2.695 de 1979, por contravenir el ordenamiento jurídico vigente.`;
+  }
+
+  if(q('mo-bienFiscal').checked){
+    const rolIndicado = val('mo-fiscal-rolIndicado');
+    const rolReal = blank(val('mo-fiscal-rolReal'),'______');
+    const detalleRol = rolIndicado
+      ? `${SolicitanteMay()} ${v('individualiza','individualizan')} el Rol de Avalúo Fiscal N° ${rolIndicado} de la comuna de ${blank(val('comuna'),'____________')}; sin embargo, de la revisión de los antecedentes geográficos del Servicio de Impuestos Internos se desprende que el retazo objeto del expediente corresponde en realidad al Rol N° ${rolReal}. `
+      : `De la revisión de los antecedentes geográficos del Servicio de Impuestos Internos se desprende que el retazo objeto del expediente corresponde al Rol N° ${rolReal}. `;
+    out.bienFiscal = `${detalleRol}Al verificarse dicho rol, este Servicio da cuenta de que el inmueble detenta la calidad de propiedad fiscal, con lo cual se configura un impedimento legal absoluto de acuerdo con el Artículo 8° inciso segundo del Decreto Ley N° 2.695/1979, norma que excluye taxativamente del procedimiento de saneamiento a los bienes raíces inscritos a nombre del Fisco de Chile. Tratándose de una exclusión de pleno derecho, resulta improcedente continuar con la tramitación, sin que sea necesario ponderar los restantes requisitos de los Artículos 2° y 4° del citado Decreto Ley.`;
+  }
+
+  if(q('mo-noEsParte').checked){
+    const doc = blank(val('mo-noEsParte-doc'),'el contrato acompañado');
+    const partes = val('mo-noEsParte-partes');
+    out.noEsParte = `${SolicitanteMay()} ${v('invoca','invocan')} como origen de su posesión ${doc}${partes? `, celebrado entre ${partes}`:''}, instrumento respecto del cual ${solicitanteMin()} no ${v('es parte','son parte')}. En consecuencia, dicho documento no resulta idóneo para este procedimiento administrativo, pues no vincula jurídicamente ${alALa()} con la inscripción de dominio que rola a ${inscripcion}, ni permite tener por configurado el "título aparente" que exige el Artículo 3° inciso segundo del Decreto Ley N° 2.695 como antecedente necesario para hacer presumible la continuidad y legitimidad de la ocupación. Esta omisión impide al Servicio establecer una "fecha cierta" respecto del inicio del tracto posesorio, transformando el relato ${delInteresado()} en una mera declaración carente de respaldo documental. De acuerdo con el Punto 4.2.2 ${circular}, la solicitud cuyo único fundamento radica en declaraciones que no son consistentes con los antecedentes documentales de origen debe ser desechada por falta de autenticidad, ${rechazo11}.`;
+  }
+
   if(q('mo-comuneros').checked){
-    out.comuneros = `De acuerdo a lo señalado precedentemente, los demás comuneros se encuentran bajo los supuestos contemplados en el Art. 19 N° 1 inciso 2°, y Art. 19 N° 2 del D.L. 2695/79, pues, al ser ${solicitanteMin()} parte de una comunidad hereditaria, y no constar en el expediente la autorización de la totalidad de los demás comuneros, existen terceros con igual o mejor derecho que ${elElla()}, no bastando las declaraciones de una parte de los miembros de la comunidad para dar lugar a la solicitud, por lo que tampoco cumple con el requisito de ser poseedor continuo, exclusivo y sin violencia ni clandestinidad, contemplado en el Artículo 2° del mismo cuerpo normativo.`;
+    out.comuneros = `De acuerdo a lo señalado precedentemente, los demás comuneros se encuentran bajo los supuestos contemplados en el Art. 19 N° 1 inciso 2°, y Art. 19 N° 2 del D.L. 2695/79, pues, al ser ${solicitanteMin()} parte de una comunidad hereditaria, y no constar en el expediente la autorización de la totalidad de los demás comuneros, existen terceros con igual o mejor derecho que ${elElla()}, no bastando las declaraciones de una parte de los miembros de la comunidad para dar lugar a la solicitud, por lo que tampoco ${v('cumple','cumplen')} con el requisito de ser ${poseedorCalidad()} de forma continua, exclusiva y sin violencia ni clandestinidad, contemplado en el Artículo 2° del mismo cuerpo normativo.`;
   }
+
   if(q('mo-herenciaRemota').checked){
     const causante = blank(val('mo-her-causante'),'su causante');
-    out.herenciaRemota = `${SolicitanteMay()} ampara su posesión en herencia quedada al fallecimiento de ${causante}, sin embargo, no acredita el vínculo entre dicho causante y quien figura como propietario en la inscripción de dominio que rola a Fojas ${blank(val('fojas'))}, N° ${blank(val('numInsc'))} del año ${blank(val('anioInsc'))} del Registro de Propiedad del Conservador de Bienes Raíces de ${blank(val('cbr'))}, por lo que no es posible descartar la existencia de terceros que pudieran tener igual o mejor derecho que ${elElla()}, no logrando acreditar el cumplimiento de lo exigido por los Artículos 2°, 3° y 4° del D.L. N° 2.695/79.`;
+    out.herenciaRemota = `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en herencia quedada al fallecimiento de ${causante}, sin embargo, no ${v('acredita','acreditan')} el vínculo entre dicho causante y quien figura como propietario en la inscripción de dominio que rola a ${inscripcion}, por lo que no es posible descartar la existencia de terceros que pudieran tener igual o mejor derecho que ${elElla()}, no logrando acreditar el cumplimiento de lo exigido por los Artículos 2°, 3° y 4° del D.L. N° 2.695/79.`;
   }
+
   if(q('mo-tituloInvalido').checked){
     const doc = blank(val('mo-titulo-doc'),'el documento acompañado');
-    out.tituloInvalido = `${SolicitanteMay()} pretende acreditar el origen de su posesión mediante ${doc}, no obstante, dicho documento carece de los elementos mínimos de validez jurídica, al no especificarse los firmantes ni constar las rúbricas de las partes ni la individualización del ministro de fe. Esta omisión impide otorgar "fecha cierta" al instrumento, transformándolo en un antecedente que no permite presumir la continuidad de la posesión ni el vínculo jurídico con el inmueble, incumpliendo con la forma de acreditación de la prueba documental exigida por el Punto 4.1.2 letra e) de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales. Conforme al Punto 4.2.2 de la misma Circular, esta inconsistencia configura una causal de rechazo por falta de autenticidad, impidiendo a ${elLa()} solicitante invocar la suma de posesiones de sus antecesores para cumplir con el requisito de cinco años de posesión material, continua y exclusiva establecido en el Artículo 2° N° 1 del Decreto Ley N° 2.695.`;
+    out.tituloInvalido = `${SolicitanteMay()} ${v('pretende','pretenden')} acreditar el origen de su posesión mediante ${doc}, no obstante, dicho documento carece de los elementos mínimos de validez jurídica, al no especificarse los firmantes ni constar las rúbricas de las partes ni la individualización del ministro de fe. Esta omisión impide otorgar "fecha cierta" al instrumento, transformándolo en un antecedente que no permite presumir la continuidad de la posesión ni el vínculo jurídico con el inmueble, incumpliendo con la forma de acreditación de la prueba documental exigida por el Punto 4.1.2 letra e) ${circular}. Conforme al Punto 4.2.2 de la misma Circular, esta inconsistencia configura una causal de rechazo por falta de autenticidad, impidiendo ${alALa()} invocar la suma de posesiones de sus antecesores para cumplir con el requisito de cinco años de posesión material, continua y exclusiva establecido en el Artículo 2° N° 1 del Decreto Ley N° 2.695.`;
   }
+
+  if(q('mo-tituloInformal').checked){
+    const doc = blank(val('mo-informal-doc'),'un contrato de compraventa');
+    const partes = val('mo-informal-partes');
+    out.tituloInformal = `${SolicitanteMay()} ${v('acompaña','acompañan')} como Título Aparente ${doc}${partes? `, celebrado entre ${partes}`:''}, instrumento de carácter informal que no cuenta con ministro de fe, ni fecha cierta, ni cabida superficial del inmueble. La ausencia de estos elementos impide que el documento produzca los efectos del "título aparente" que exige el Artículo 3° inciso segundo del Decreto Ley N° 2.695, pues no permite fijar el momento de inicio del tracto posesorio ni individualizar el retazo sobre el cual recaería la posesión invocada. Conforme al Punto 4.1.2 letra e) ${circular}, la prueba documental debe reunir condiciones mínimas de autenticidad, y según el Punto 4.2.2 de la misma Circular su ausencia obliga a desechar la solicitud por falta de autenticidad, ${rechazo11}.`;
+  }
+
   if(q('mo-sinInstrumento').checked){
     const titulo = blank(val('mo-sininst-titulo'),'el título alegado');
-    out.sinInstrumento = `${SolicitanteMay()} funda el origen de su posesión en ${titulo}, pero ha omitido acompañar el instrumento público o privado que dé cuenta de dicho acto. Esta omisión constituye una infracción al Artículo 3° inciso segundo del Decreto Ley N° 2.695, el cual exige taxativamente la existencia de un Título Aparente que haga presumible la continuidad de las posesiones para habilitar la suma de años de los antecesores. Al no constar el documento en el expediente, la solicitud incurre en una "falta de autenticidad" de acuerdo con el Punto 4.2.2 de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales, toda vez que la sola declaración ${g('del interesado','de la interesada')} no suple la carga probatoria de acreditar el origen de la ocupación. En consecuencia, sin este título, no es posible verificar el cumplimiento del plazo de cinco años de posesión material, continua y exclusiva exigido por el Artículo 2° N° 1 del Decreto Ley N° 2.695.`;
+    out.sinInstrumento = `${SolicitanteMay()} ${v('funda','fundan')} el origen de su posesión en ${titulo}, pero ${v('ha','han')} omitido acompañar el instrumento público o privado que dé cuenta de dicho acto. Esta omisión constituye una infracción al Artículo 3° inciso segundo del Decreto Ley N° 2.695, el cual exige taxativamente la existencia de un Título Aparente que haga presumible la continuidad de las posesiones para habilitar la suma de años de los antecesores. Al no constar el documento en el expediente, la solicitud incurre en una "falta de autenticidad" de acuerdo con el Punto 4.2.2 ${circular}, toda vez que la sola declaración ${delInteresado()} no suple la carga probatoria de acreditar el origen de la ocupación. En consecuencia, sin este título, no es posible verificar el cumplimiento del plazo de cinco años de posesión material, continua y exclusiva exigido por el Artículo 2° N° 1 del Decreto Ley N° 2.695.`;
   }
+
   if(q('mo-meroTenedor').checked){
     const antecesor = blank(val('mo-mero-antecesor'),'su antecesor');
-    out.meroTenedor = `El informe es negativo toda vez que ${g('el interesado reconoce','la interesada reconoce')} explícitamente que ${antecesor} detentaba la calidad de "mero tenedor" del inmueble. Conforme al Artículo 714 del Código Civil, citado en el Punto 4.2.3 de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales, la mera tenencia es aquella que se ejerce sobre una cosa no como dueño, sino en lugar o a nombre del dueño, lo cual impide legalmente que dicho período sea computado para la suma de posesiones. Además, el Artículo 9° del Decreto Ley N° 2.695 establece una presunción de dolo contra quien pretenda obtener la calidad de poseedor regular teniendo la calidad de mero tenedor o habiendo reconocido dominio ajeno. Al no existir antecedentes que prueben la mutación de la mera tenencia en una posesión con ánimo de señor y dueño, la solicitud debe ser desechada por falta de autenticidad según el Punto 4.2.2 de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales.`;
+    out.meroTenedor = `El informe es negativo toda vez que ${elInteresado()} ${v('reconoce','reconocen')} explícitamente que ${antecesor} detentaba la calidad de "mero tenedor" del inmueble. Conforme al Artículo 714 del Código Civil, citado en el Punto 4.2.3 ${circular}, la mera tenencia es aquella que se ejerce sobre una cosa no como dueño, sino en lugar o a nombre del dueño, lo cual impide legalmente que dicho período sea computado para la suma de posesiones. Además, el Artículo 9° del Decreto Ley N° 2.695 establece una presunción de dolo contra quien pretenda obtener la calidad de poseedor regular teniendo la calidad de mero tenedor o habiendo reconocido dominio ajeno. Al no existir antecedentes que prueben la mutación de la mera tenencia en una posesión con ánimo de señor y dueño, la solicitud debe ser desechada por falta de autenticidad según el Punto 4.2.2 ${circular}.`;
   }
+
   if(q('mo-parentescoNoAcreditado').checked){
     const titular = blank(val('mo-parentesco-titular'),'el titular original de los derechos');
-    out.parentescoNoAcreditado = `Según el Artículo 3° inciso segundo del Decreto Ley N° 2.695, para que ${elLa()} solicitante pueda agregar a su posesión la de sus antecesores (suma de posesiones), debe existir un "título aparente" que haga presumible la continuidad de las ocupaciones, mencionando expresamente la calidad de descendiente o heredero presunto. En este caso, aunque ${solicitanteMin()} presenta antecedentes a nombre de ${titular} y demuestra su vínculo familiar con el causante inmediato, la omisión del certificado de nacimiento que acredite el parentesco con ${titular} impide acreditar legalmente dicho vínculo. De acuerdo con el Punto 4.1.3 letra a) de la Circular N° 3 de 2022, estos certificados son calificados como "antecedentes necesarios" para formar convicción administrativa cuando la posesión se fundamenta en razones de herencia, por lo que su ausencia invalida la pretensión de heredar el tiempo de posesión del causante.`;
+    out.parentescoNoAcreditado = `Según el Artículo 3° inciso segundo del Decreto Ley N° 2.695, para que ${solicitanteMin()} pueda agregar a su posesión la de sus antecesores (suma de posesiones), debe existir un "título aparente" que haga presumible la continuidad de las ocupaciones, mencionando expresamente la calidad de descendiente o ${herederoCalidad()} presunto. En este caso, aunque ${solicitanteMin()} ${v('presenta','presentan')} antecedentes a nombre de ${titular} y ${v('demuestra','demuestran')} su vínculo familiar con el causante inmediato, la omisión del certificado de nacimiento que acredite el parentesco con ${titular} impide acreditar legalmente dicho vínculo. De acuerdo con el Punto 4.1.3 letra a) ${circular}, estos certificados son calificados como "antecedentes necesarios" para formar convicción administrativa cuando la posesión se fundamenta en razones de herencia, por lo que su ausencia invalida la pretensión de heredar el tiempo de posesión del causante y, con ello, la de acreditar los cinco años que exige el Artículo 2° N° 1 del citado Decreto Ley.`;
   }
+
   if(q('mo-discrepanciaCabida').checked){
     const pretendida = blank(val('mo-cabida-pretendida'),'la superficie pretendida');
     const avaluo = blank(val('mo-cabida-avaluo'),'la superficie del avalúo');
-    out.discrepanciaCabida = `Al analizar el certificado de avalúo fiscal acompañado al expediente se advierte una inconsistencia sustancial que impide determinar con certeza la individualización del inmueble objeto de regularización. En efecto, ${solicitanteMin()} requiere sanear una superficie de ${pretendida}, extensión que no guarda concordancia con el certificado de avalúo fiscal acompañado, el cual da cuenta de un inmueble con una superficie de ${avaluo}, generándose una contradicción objetiva entre los antecedentes aportados. Tal discrepancia impide establecer de manera fehaciente la correspondencia entre el inmueble cuya regularización se solicita y aquel individualizado en el antecedente tributario, afectando directamente la acreditación de la posesión material continua y exclusiva exigida por el Artículo 2° N° 1 del Decreto Ley N° 2.695 de 1979. Conforme al Punto 4.2.2 de la Circular N° 3 de 2022 de la Subsecretaría de Bienes Nacionales, la solicitud debe ser desechada por falta de autenticidad, procediendo el rechazo en virtud del Artículo 11° inciso primero del citado Decreto Ley.`;
+    out.discrepanciaCabida = `Al analizar el certificado de avalúo fiscal acompañado al expediente se advierte una inconsistencia sustancial que impide determinar con certeza la individualización del inmueble objeto de regularización. En efecto, ${solicitanteMin()} ${v('requiere','requieren')} sanear una superficie de ${pretendida}, extensión que no guarda concordancia con el certificado de avalúo fiscal acompañado, el cual da cuenta de un inmueble con una superficie de ${avaluo}, generándose una contradicción objetiva entre los antecedentes aportados. Tal discrepancia impide establecer de manera fehaciente la correspondencia entre el inmueble cuya regularización se solicita y aquel individualizado en el antecedente tributario, obstando a la individualización indubitada que requiere el Artículo 10° inciso final del Decreto Ley N° 2.695 y afectando directamente la acreditación de la posesión material continua y exclusiva exigida por el Artículo 2° N° 1 del mismo cuerpo legal. Conforme al Punto 4.2.2 ${circular}, la solicitud debe ser desechada por falta de autenticidad, ${rechazo11}.`;
   }
+
+  if(q('mo-excedePequena').checked){
+    const pretendida = blank(val('mo-excede-pretendida'),'la superficie pretendida');
+    const conAvaluo = blank(val('mo-excede-conAvaluo'),'la superficie amparada por el avalúo');
+    out.excedePequena = `La solicitud no logra acreditar que se trate de una "pequeña propiedad raíz" en los términos exigidos por el Artículo 1° del Decreto Ley N° 2.695 de 1979, norma que limita este procedimiento a los inmuebles cuyo avalúo fiscal no exceda los máximos legales. En el caso concreto, al pretenderse sanear una extensión de ${pretendida} contando únicamente con avalúo respecto de ${conAvaluo}, ${solicitanteMin()} ${v('omite','omiten')} acreditar el valor fiscal de la totalidad de la superficie efectivamente poseída, no siendo posible verificar si el avalúo del exceso mantiene el inmueble dentro del límite legal. Respecto de esa superficie excedentaria tampoco existe respaldo documental que otorgue "fecha cierta" ni veracidad a los actos de señor y dueño alegados, con lo cual se afecta la acreditación de la posesión material continua y exclusiva exigida por el Artículo 2° N° 1 del citado Decreto Ley. Conforme al Punto 4.2.2 ${circular}, la falta de consistencia entre los hechos declarados y los antecedentes documentales impide formar convicción administrativa sobre la real extensión de la ocupación, ${rechazo11}.`;
+  }
+
   if(q('mo-comunidadSinCuotas').checked){
     const org = blank(val('mo-comunidad-nombre'),'la organización o comité');
-    out.comunidadSinCuotas = `${SolicitanteMay()} indica adquirir la posesión material del inmueble a través de derechos cedidos por ${org}, sin embargo, los antecedentes aportados resultan insuficientes para acreditar la existencia y extensión de los derechos invocados, toda vez que no se acompaña documentación que permita determinar las cuotas o proporciones de derechos que corresponderían a cada uno de sus miembros. Asimismo, no existe constancia de eventuales adjudicaciones o asignaciones de lotes efectuadas al interior de dicha organización que permitan individualizar el inmueble específico sobre el cual recaerían los derechos cedidos. En consecuencia, la documentación acompañada carece de mérito suficiente para acreditar, por sí sola, la transferencia de derechos alegada, no existiendo certeza de la titularidad de derechos ${g('del solicitante','de la solicitante')} ni tampoco la proporción de derechos de cada uno, no resultando procedente aplicar el procedimiento de regularización establecido en el Decreto Ley N° 2.695.`;
+    out.comunidadSinCuotas = `${SolicitanteMay()} ${v('indica','indican')} adquirir la posesión material del inmueble a través de derechos cedidos por ${org}, sin embargo, los antecedentes aportados resultan insuficientes para acreditar la existencia y extensión de los derechos invocados, toda vez que no se acompaña documentación que permita determinar las cuotas o proporciones de derechos que corresponderían a cada uno de sus miembros. Asimismo, no existe constancia de eventuales adjudicaciones o asignaciones de lotes efectuadas al interior de dicha organización que permitan individualizar el inmueble específico sobre el cual recaerían los derechos cedidos. En consecuencia, la documentación acompañada carece de mérito suficiente para acreditar, por sí sola, la transferencia de derechos alegada, no existiendo certeza respecto de la naturaleza, extensión o ubicación de los derechos, ni de la titularidad ${delSolicitante()} ni de la proporción que a cada uno correspondería, no resultando procedente aplicar el procedimiento de regularización establecido en el Decreto Ley N° 2.695.`;
   }
+
   if(q('mo-antiguedadInsuficiente').checked){
     const detalle = blank(val('mo-antig-detalle'),'el antecedente acompañado');
-    out.antiguedadInsuficiente = `En análisis de los antecedentes, no se ha logrado acreditar el cumplimiento del requisito de posesión material continua y exclusiva por un plazo no inferior a cinco años, exigido por el Artículo 2° N° 1 del Decreto Ley N° 2.695/1979. Conforme al Artículo 4° del Decreto Ley N° 2.695/1979 y el Artículo 925 del Código Civil, la posesión debe probarse mediante hechos positivos de dominio, carga que no se satisface con meras declaraciones. Si bien ${solicitanteMin()} acompañó ${detalle}, éste no demuestra extensión de temporalidad en su posesión, debiendo haber acompañado antecedentes que permitan presumir en forma fehaciente la realización de actos posesorios y mejoras sobre la propiedad por un período de 5 años a lo menos anteriores a la fecha de ingreso de su solicitud de regularización.`;
+    out.antiguedadInsuficiente = `En análisis de los antecedentes, no se ha logrado acreditar el cumplimiento del requisito de posesión material continua y exclusiva por un plazo no inferior a cinco años, exigido por el Artículo 2° N° 1 del Decreto Ley N° 2.695/1979. Conforme al Artículo 4° del Decreto Ley N° 2.695/1979 y el Artículo 925 del Código Civil, la posesión debe probarse mediante hechos positivos de dominio, carga que no se satisface con meras declaraciones. Si bien ${solicitanteMin()} ${v('acompañó','acompañaron')} ${detalle}, éste no demuestra extensión de temporalidad en su posesión, debiendo haber acompañado antecedentes que permitan presumir en forma fehaciente la realización de actos posesorios y mejoras sobre la propiedad por un período de 5 años a lo menos anteriores a la fecha de ingreso de su solicitud de regularización.`;
   }
 
   return out;
@@ -1822,14 +2290,22 @@ function labelMotivo(k){
 
 /* offset = cuántas letras están ya ocupadas antes de los motivos.
    En el informe negativo la letra a) es el origen de la posesión, así que offset=1. */
-function textoMotivos(offset){
+/* Cada motivo de rechazo es un bloque independiente: así al marcar, desmarcar o
+   reordenar motivos sólo cambian los párrafos afectados. El id NO incluye la
+   letra, para que una edición manual sobreviva a un cambio de orden. */
+function bloquesMotivos(offset){
   const inicio = offset || 0;
   const textos = motivosTextos();
   const orden = ordenMotivosActivo();
   if(orden.length===0){
-    return `[Selecciona al menos un motivo de rechazo en el panel izquierdo para generar este párrafo.]`;
+    return [{id:'mo-vacio', texto:'[Selecciona al menos un motivo de rechazo en el panel izquierdo para generar este párrafo.]'}];
   }
-  return orden.map((k,i)=>`${LETRAS[inicio+i]}.- ${textos[k]}`).join('\n\n');
+  return orden.map((k,i)=>({ id:'mo-'+k, texto:`${LETRAS[inicio+i]}.- ${textos[k]}` }));
+}
+
+/* Se conserva por compatibilidad: devuelve los motivos ya unidos en un texto. */
+function textoMotivos(offset){
+  return bloquesMotivos(offset).map(b=>b.texto).join('\n\n');
 }
 
 /* ---- Widget para elegir cuál motivo es b), c), d)... ---- */
@@ -1901,84 +2377,95 @@ function encabezadoComun(){
   };
 }
 
+/* ------------------------------------------------------------------
+   Los documentos se arman como LISTA DE BLOQUES [{id, texto}].
+   Cada bloque es un párrafo con identidad propia (por ejemplo 'p4-a' o
+   'obs-oficios'), y esa identidad es la que permite regenerar sólo lo que
+   cambió: si editas un párrafo a mano, se guarda ese id y el resto del
+   documento sigue actualizándose con los datos del formulario.
+
+   REGLA IMPORTANTE: el texto de un bloque nunca debe contener una línea en
+   blanco, porque los bloques se unen con '\n\n'. sanBloque() lo garantiza.
+   ------------------------------------------------------------------ */
+function sanBloque(t){
+  return String(t == null ? '' : t).replace(/\n{2,}/g, '\n').trim();
+}
+function bl(id, texto){ return {id: id, texto: sanBloque(texto)}; }
+
 function partesInforme(){
   const d = encabezadoComun();
-  const materia = `INFORME JURÍDICO, ${upper(d.nombre)}.`;
+  const personas = sols();
+  const materia = personas.length > 1
+    ? `INFORME JURÍDICO DE ${nombresSolicitantesConTrato()}.`
+    : `INFORME JURÍDICO, ${nombresSolicitantes()}.`;
   const de = `${upper(d.postulante)} POSTULANTE CAJ METROPOLITANA, ${upper(d.abogado)} ABOGADO TUTOR UNIDAD DE REGULARIZACIÓN.`;
   const a = '';
   const fecha = fechaCorta(d.fecha);
-  let cuerpo;
+  const bloques = [];
 
-  if(state.resultado==='si'){
+  bloques.push(bl('materia', materia));
+  bloques.push(bl('encabezado', `REGIÓN ${upper(d.region)}, ${fechaLarga(d.fecha)}, Fiscal: ${textoFiscal()}`));
+
+  const esSi = state.resultado === 'si';
+
+  bloques.push(bl('p1', `1.- Resultado del Análisis Jurídico: ${esSi
+    ? 'Sí es posible aplicar el procedimiento establecido en el D.L. N°2695/79.'
+    : 'No es posible aplicar el procedimiento establecido en el D.L. N°2695/79.'}`));
+
+  bloques.push(bl('p2', `2.- ${g('El solicitante es','La solicitante es','Los solicitantes son','Las solicitantes son')} ${listaSolicitantesConRut()}.`));
+
+  if(esSi){
+    bloques.push(bl('p3', `3.- Según se ha comprobado con las diligencias e Informe Técnico, la solicitud de regularización se refiere a un inmueble ${d.calidadBien}, ${d.tipoBien}, ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, con una superficie aproximada de ${d.superficieTexto}.`));
+
+    bloques.push(bl('p3-titulo', `- El Título de dominio que ampara el inmueble rola a Fojas ${d.fojas}, Nº ${d.numInsc} del año ${d.anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${d.cbr}.`));
+    bloques.push(bl('p3-ampara', `- El Título ampara en forma ${d.ampara}, el inmueble objeto de regularización.`));
+
     let avaluoLinea = `Se encuentra amparado por el Rol de Avalúo Fiscal Nº ${d.rolAvaluo}`;
     if(d.avaluoTotal) avaluoLinea += `, con un Avalúo Fiscal Total de ${money(d.avaluoTotal)}.-`;
     if(d.avaluoProporcional) avaluoLinea += ` y un Avalúo Fiscal Proporcional de ${money(d.avaluoProporcional)}.-`;
+    bloques.push(bl('p3-avaluo', `- ${avaluoLinea}`));
 
-    cuerpo = `REGIÓN ${upper(d.region)}, ${fechaLarga(d.fecha)}, Fiscal: ${textoFiscal()}
+    bloques.push(bl('p3-cierre', `Luego, se trata de un inmueble de propiedad ${d.tipoBien.toLowerCase()} que no se encuentra en alguna de las situaciones descritas en los incisos 1º y 2º del artículo 8º del citado Decreto Ley, siendo en un principio procedente la regularización de la propiedad particular de acuerdo al procedimiento establecido en el Decreto Ley Nº 2695/79 y en su reglamento.`));
 
-1.- Resultado del Análisis Jurídico: Sí es posible aplicar el procedimiento establecido en el D.L. N°2695/79.
+    bloques.push(bl('p4', `4.- De los Antecedentes de la Posesión invocada que constan en el expediente aparece que ${solicitanteMin()} ${v('posee','poseen')} el inmueble según se pasa a explicar:`));
 
-2.- ${g('El solicitante es don','La solicitante es doña')} ${upper(d.nombre)}, C.I. N° ${d.rut}.
+    bloques.push(bl('p4-a', `a.- ${tituloModoAdquisicion() ? tituloModoAdquisicion()+' ' : ''}${textoModoAdquisicion()}`));
+    bloques.push(bl('p4-b', `b.- De acuerdo a las declaraciones acompañadas, ${solicitanteMin()} ${v('tiene','tienen')} la posesión material exclusiva y continua, sin violencia ni clandestinidad, por ${val('aniosPosesion')||'__'} años.`));
+    bloques.push(bl('p4-c', `c.- La posesión la ${v('ejerce','ejercen')} ${solicitanteMin()} ${porSiMismo()}.`));
+    bloques.push(bl('p4-d', `d.- No existe en contra de ${solicitanteMin()} juicio pendiente en que se discuta el dominio o la posesión de la propiedad.`));
+    bloques.push(bl('p4-e', `e.- ${SolicitanteMay()} ${v('reúne','reúnen')}, en principio, los requisitos establecidos en el artículo 2º del Decreto Ley Nº 2695/79.`));
 
-3.- Según se ha comprobado con las diligencias e Informe Técnico, la solicitud de regularización se refiere a un inmueble ${d.calidadBien}, ${d.tipoBien}, ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, con una superficie aproximada de ${d.superficieTexto}.
+    bloques.push(bl('p5', `5.- Procedencia de la regularización de la posesión de la pequeña propiedad raíz a través del procedimiento establecido en el D.L. Nº 2695:`));
+    bloques.push(bl('p5-texto', `Conforme al informe Jurídico efectuado en este acto, la regularización de la posesión de la propiedad particular no se podrá obtener a través de procedimientos establecidos en otras leyes, lo cual resulta difícil u oneroso de realizar, por cuanto los mecanismos legales contemplados en la legislación general no satisfacen las necesidades ${delSolicitante()}, siendo aplicable al caso en particular el procedimiento administrativo contenido en el D.L. 2695/79, de acuerdo a lo establecido específicamente en el Artículo 1°, 2°, 4°, 10° del citado Decreto Ley, y demás normas legales aplicables al caso en concreto.`));
 
-- El Título de dominio que ampara el inmueble rola a Fojas ${d.fojas}, Nº ${d.numInsc} del año ${d.anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${d.cbr}.
+    bloques.push(bl('obs-titulo', 'Observaciones:'));
+    bloquesObservaciones().forEach(b => bloques.push(bl(b.id, b.texto)));
 
-- El Título ampara en forma ${d.ampara}, el inmueble objeto de regularización.
+    bloques.push(bl('cierre', `Luego, de acuerdo a lo expuesto con anterioridad, procede, en un principio, la regularización de la posesión de la propiedad particular a través del procedimiento establecido en el Decreto Ley Nº 2695/79 y en su reglamento, contenido en el Decreto Supremo Nº 541, de 1996, y sus modificaciones, por lo que corresponde dar curso progresivo al procedimiento contemplado en la normativa citada.`));
 
-- ${avaluoLinea}
-
-Luego, se trata de un inmueble de propiedad ${d.tipoBien.toLowerCase()} que no se encuentra en alguna de las situaciones descritas en los incisos 1º y 2º del artículo 8º del citado Decreto Ley, siendo en un principio procedente la regularización de la propiedad particular de acuerdo al procedimiento establecido en el Decreto Ley Nº 2695/79 y en su reglamento.
-
-4.- De los Antecedentes de la Posesión invocada que constan en el expediente aparece que ${solicitanteMin()} posee el inmueble según se pasa a explicar:
-
-a.- ${tituloModoAdquisicion() ? tituloModoAdquisicion()+' ' : ''}${textoModoAdquisicion()}
-
-b.- De acuerdo a las declaraciones acompañadas, ${solicitanteMin()} tiene la posesión material exclusiva y continua, sin violencia ni clandestinidad, por ${val('aniosPosesion')||'__'} años.
-
-c.- La posesión la ejerce ${solicitanteMin()} ${porSiMismo()}.
-
-d.- No existe en contra de ${solicitanteMin()} juicio pendiente en que se discuta el dominio o la posesión de la propiedad.
-
-e.- ${SolicitanteMay()} reúne, en principio, los requisitos establecidos en el artículo 2º del Decreto Ley Nº 2695/79.
-
-5.- Procedencia de la regularización de la posesión de la pequeña propiedad raíz a través del procedimiento establecido en el D.L. Nº 2695:
-
-Conforme al informe Jurídico efectuado en este acto, la regularización de la posesión de la propiedad particular no se podrá obtener a través de procedimientos establecidos en otras leyes, lo cual resulta difícil u oneroso de realizar, por cuanto los mecanismos legales contemplados en la legislación general no satisfacen las necesidades ${g('del solicitante','de la solicitante')}, siendo aplicable al caso en particular el procedimiento administrativo contenido en el D.L. 2695/79, de acuerdo a lo establecido específicamente en el Artículo 1°, 2°, 4°, 10° del citado Decreto Ley, y demás normas legales aplicables al caso en concreto.
-
-Observaciones:
-
-${textoObservaciones()}
-
-Luego, de acuerdo a lo expuesto con anterioridad, procede, en un principio, la regularización de la posesión de la propiedad particular a través del procedimiento establecido en el Decreto Ley Nº 2695/79 y en su reglamento, contenido en el Decreto Supremo Nº 541, de 1996, y sus modificaciones, por lo que corresponde dar curso progresivo al procedimiento contemplado en la normativa citada.`;
   } else {
-    cuerpo = `REGIÓN ${upper(d.region)}, ${fechaLarga(d.fecha)}, Fiscal: ${textoFiscal()}
+    bloques.push(bl('p3', `3.- La solicitud de regularización se refiere a un inmueble ${d.calidadBien.toLowerCase()} ${d.tipoBien} ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, con una superficie aproximada de ${d.superficieTexto}.`));
 
-1.- Resultado del Análisis Jurídico: No es posible aplicar el procedimiento establecido en el D.L. N°2695/79.
+    bloques.push(bl('p3-titulo', `- El Título de dominio que ampara el inmueble rola a Fojas ${d.fojas}, Nº ${d.numInsc} del año ${d.anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${d.cbr}.`));
+    bloques.push(bl('p3-avaluo', `- Se encuentra amparado por el Rol de Avalúo Fiscal Nº ${d.rolAvaluo}${d.avaluoTotal? `, con un Avalúo Fiscal Total de ${money(d.avaluoTotal)}.-`:''}${d.avaluoProporcional? ` y con un Avalúo Fiscal Proporcional de ${money(d.avaluoProporcional)}.-`:''}`));
 
-2.- ${g('El solicitante es don','La solicitante es doña')} ${upper(d.nombre)}, C.I. N° ${d.rut}.
+    bloques.push(bl('p4', `4.- De los Antecedentes de la Posesión invocada que constan en el expediente aparece que ${solicitanteMin()} ${v('posee','poseen')} el inmueble según se pasa a explicar, y que la regularización de la posesión material de la propiedad no cumple con los requisitos exigidos por la Ley, por cuanto:`));
 
-3.- La solicitud de regularización se refiere a un inmueble ${d.calidadBien.toLowerCase()} ${d.tipoBien} ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, con una superficie aproximada de ${d.superficieTexto}.
+    bloques.push(bl('p4-a', `a.- ${tituloModoAdquisicion() ? tituloModoAdquisicion()+' ' : ''}${textoModoAdquisicion()}`));
+    bloquesMotivos(1).forEach(b => bloques.push(bl(b.id, b.texto)));
 
-- El Título de dominio que ampara el inmueble rola a Fojas ${d.fojas}, Nº ${d.numInsc} del año ${d.anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${d.cbr}.
+    /* El informe que rechaza también lleva Observaciones (así aparece en los
+       informes emitidos), pero sólo si hay alguna marcada. */
+    if(hayObservaciones()){
+      bloques.push(bl('obs-titulo', 'Observaciones:'));
+      bloquesObservaciones().forEach(b => bloques.push(bl(b.id, b.texto)));
+    }
 
-- Se encuentra amparado por el Rol de Avalúo Fiscal Nº ${d.rolAvaluo}${d.avaluoTotal? `, con un Avalúo Fiscal Total de ${money(d.avaluoTotal)}.-`:''}${d.avaluoProporcional? ` y con un Avalúo Fiscal Proporcional de ${money(d.avaluoProporcional)}.-`:''}
-
-4.- De los Antecedentes de la Posesión invocada que constan en el expediente aparece que ${solicitanteMin()} posee el inmueble según se pasa a explicar, y que la regularización de la posesión material de la propiedad no cumple con los requisitos exigidos por la Ley, por cuanto:
-
-a.- ${tituloModoAdquisicion() ? tituloModoAdquisicion()+' ' : ''}${textoModoAdquisicion()}
-
-${textoMotivos(1)}
-
-Luego, de acuerdo a lo expuesto con anterioridad, no procede, en un principio, la regularización de la posesión de la propiedad particular a través del procedimiento establecido en el Decreto Ley.${val('obsExtra')? '\n\nObservaciones:\n\n'+val('obsExtra') : ''}`;
+    bloques.push(bl('cierre', `Luego, de acuerdo a lo expuesto con anterioridad, no procede, en un principio, la regularización de la posesión de la propiedad particular a través del procedimiento establecido en el Decreto Ley N° 2.695 de 1979.`));
   }
 
-  return {materia, fecha, de, a, cuerpo};
-}
-
-function generarInforme(){
-  const p = partesInforme();
-  return `${p.materia}\n\n${p.cuerpo}\n\n${p.de}`;
+  bloques.push(bl('firma', de));
+  return {materia, fecha, de, a, bloques};
 }
 
 function partesResolucion(){
@@ -1997,90 +2484,46 @@ function partesResolucion(){
   const publicacion = `3.- Publíquese la presente resolución en el sitio electrónico del Gobierno Transparente del Ministerio de Bienes Nacionales en la sección "actos y resoluciones", en la categoría "actos con efectos sobre terceros", a objeto de dar cumplimiento con lo previsto en el artículo 7°, letra g), de la Ley N°20.285 sobre Acceso a la Información Pública, teniendo presente el deber de confidencialidad acerca de los datos personales que la presente resolución pudiera contener, en virtud de lo dispuesto en la Ley N°19.628, debiendo ser estos utilizados estrictamente dentro del marco de las funciones del servicio y respetarse las demás exigencias que para su tratamiento establece el ordenamiento jurídico.`;
 
   const resN = val('resN') || '0';
-  let materia, cuerpo;
+  const nombresRes = tratamientoYNombre();
+  const ubicacionRes = `${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}`;
+  const materia = acoge
+    ? `${tituloVerbo} SOLICITUD DE REGULARIZACIÓN DE ${upper(nombresRes)}, D.L. Nº 2.695/79.`
+    : `${tituloVerbo} SOLICITUD DE REGULARIZACIÓN Y ORDENA ARCHIVO DE ${upper(nombresRes)}, D.L. Nº 2.695/79.`;
+
+  const bloques = [];
+  bloques.push(bl('materia', materia));
+  bloques.push(bl('exp', `Exp.Nº: ${d.expN}`));
+  bloques.push(bl('lugarFecha', `${d.region}., ${fechaLarga(d.fecha)}`));
+  bloques.push(bl('resN', `RES. EXENTA N°: E-${resN}`));
+  bloques.push(bl('vistos-titulo', 'VISTOS:'));
+  bloques.push(bl('vistos', visto));
+  bloques.push(bl('cons-titulo', 'CONSIDERANDO:'));
+  bloques.push(bl('cons-1', `1.- Que, ${nombresRes}, con fecha ${fechaProsa(d.fechaSolicitud)}, ${v('presentó','presentaron')} ante el Ministerio de Bienes Nacionales solicitud para acceder al trámite de regularización de la posesión de la propiedad ubicada en ${ubicacionRes}.`));
 
   if(acoge){
-    materia = `${tituloVerbo} SOLICITUD DE REGULARIZACIÓN DE ${upper(donDona())} ${upper(d.nombre)}, D.L. Nº 2.695/79.`;
-    cuerpo = `Exp.Nº: ${d.expN}
-
-${d.region}., ${fechaLarga(d.fecha)}
-
-RES. EXENTA N°: E-${resN}
-
-VISTOS:
-
-${visto}
-
-CONSIDERANDO:
-
-1.- Que, ${donDona()} ${upper(d.nombre)}, con fecha ${fechaProsa(d.fechaSolicitud)}, presentó ante el Ministerio de Bienes Nacionales solicitud para acceder al trámite de regularización de la posesión de la propiedad ubicada en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}.
-
-2.- Que, los antecedentes ${g('del solicitante','de la solicitante')} y del inmueble fueron analizados jurídicamente.
-
-3.- Que, del informe jurídico elaborado por la Unidad de Regularización de esta Secretaría Regional, se desprende que ${solicitanteMin()} y el inmueble reúnen, en principio, los requisitos necesarios para proceder a la regularización de la posesión material de la propiedad particular.
-
-4.- Que, sin perjuicio de lo anterior, el cumplimiento de los requisitos legales debe ser acreditado durante el procedimiento de regularización.
-
-RESUELVO:
-
-1.- Acójase la solicitud de regularización presentada por ${donDona()} ${upper(d.nombre)}, respecto del inmueble ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, en virtud de lo dispuesto en el artículo 10 del Decreto Ley N° 2.695/79. Procédase a los trámites y gestiones necesarias para darle curso progresivo al procedimiento solicitado.
-
-2.- Notifíquese ${alALa()} la presente resolución por carta certificada al domicilio que registra en estos autos administrativos.
-
-${publicacion}
-
-DISTRIBUCIÓN:
-Interesado/a
-Expediente
-Of. De Partes
-FBP/MBM/KTU`;
+    bloques.push(bl('cons-2', `2.- Que, los antecedentes ${delSolicitante()} y del inmueble fueron analizados jurídicamente.`));
+    bloques.push(bl('cons-3', `3.- Que, del informe jurídico elaborado por la Unidad de Regularización de esta Secretaría Regional, se desprende que ${solicitanteMin()} y el inmueble ${v('reúne','reúnen')}, en principio, los requisitos necesarios para proceder a la regularización de la posesión material de la propiedad particular.`));
+    bloques.push(bl('cons-4', `4.- Que, sin perjuicio de lo anterior, el cumplimiento de los requisitos legales debe ser acreditado durante el procedimiento de regularización.`));
+    bloques.push(bl('resuelvo-titulo', 'RESUELVO:'));
+    bloques.push(bl('res-1', `1.- Acójase la solicitud de regularización presentada por ${nombresRes}, respecto del inmueble ubicado en ${ubicacionRes}, en virtud de lo dispuesto en el artículo 10 del Decreto Ley N° 2.695/79. Procédase a los trámites y gestiones necesarias para darle curso progresivo al procedimiento solicitado.`));
+    bloques.push(bl('res-2', `2.- Notifíquese ${alALa()} la presente resolución por carta certificada al domicilio que ${v('registra','registran')} en estos autos administrativos.`));
+    bloques.push(bl('res-3', publicacion));
   } else {
-    materia = `${tituloVerbo} SOLICITUD DE REGULARIZACIÓN Y ORDENA ARCHIVO DE ${upper(donDona())} ${upper(d.nombre)}, D.L. Nº 2.695/79.`;
-    cuerpo = `Exp.Nº: ${d.expN}
-
-${d.region}., ${fechaLarga(d.fecha)}
-
-RES. EXENTA N°: E-${resN}
-
-VISTOS:
-
-${visto}
-
-CONSIDERANDO:
-
-1.- Que, ${donDona()} ${upper(d.nombre)}, con fecha ${fechaProsa(d.fechaSolicitud)}, presentó ante el Ministerio de Bienes Nacionales solicitud para acceder al trámite de regularización de la posesión de la propiedad ubicada en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}.
-
-2.- Que, los antecedentes ${g('del solicitante','de la solicitante')} y del inmueble fueron analizados jurídicamente por la Unidad de Regularización de esta Secretaría Regional.
-
-3.- Que, del informe jurídico evacuado por la Unidad de Regularización se concluye que no resulta procedente acceder a la solicitud de regularización de posesión, conforme a los siguientes fundamentos:
-
-${textoMotivos()}
-
-4.- Que, en virtud de lo anterior, no procede continuar con la tramitación de la presente solicitud.
-
-RESUELVO:
-
-1.- Deniéguese la solicitud de regularización presentada por ${donDona()} ${upper(d.nombre)} respecto del inmueble ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, y ordénese su archivo, en virtud de lo dispuesto en los artículos 2°, 4°, 5°, 11° y 13° del D.L. N° 2695, de 1979, en relación con el Artículo 925° del Código Civil y demás normas aplicables al caso en concreto.
-
-2.- Notifíquese ${alALa()} la presente resolución por carta certificada al domicilio que registra en estos antecedentes administrativos.
-
-${publicacion}
-
-Anótese, Notifíquese y Archívese.
-
-DISTRIBUCIÓN:
-Interesado/a
-Expediente
-Of. De Partes
-FBP/MBM/KTU`;
+    bloques.push(bl('cons-2', `2.- Que, los antecedentes ${delSolicitante()} y del inmueble fueron analizados jurídicamente por la Unidad de Regularización de esta Secretaría Regional.`));
+    bloques.push(bl('cons-3', `3.- Que, del informe jurídico evacuado por la Unidad de Regularización se concluye que no resulta procedente acceder a la solicitud de regularización de posesión, conforme a los siguientes fundamentos:`));
+    bloquesMotivos(0).forEach(b => bloques.push(bl(b.id, b.texto)));
+    bloques.push(bl('cons-4', `4.- Que, en virtud de lo anterior, no procede continuar con la tramitación de la presente solicitud.`));
+    bloques.push(bl('resuelvo-titulo', 'RESUELVO:'));
+    bloques.push(bl('res-1', `1.- Deniéguese la solicitud de regularización presentada por ${nombresRes} respecto del inmueble ubicado en ${ubicacionRes}, y ordénese su archivo, en virtud de lo dispuesto en los artículos 2°, 4°, 5°, 11° y 13° del D.L. N° 2695, de 1979, en relación con el Artículo 925° del Código Civil y demás normas aplicables al caso en concreto.`));
+    bloques.push(bl('res-2', `2.- Notifíquese ${alALa()} la presente resolución por carta certificada al domicilio que ${v('registra','registran')} en estos antecedentes administrativos.`));
+    bloques.push(bl('res-3', publicacion));
+    bloques.push(bl('res-anotese', 'Anótese, Notifíquese y Archívese.'));
   }
 
-  return {materia, fecha, de: firma, a, cuerpo};
-}
+  bloques.push(bl('distribucion', `DISTRIBUCIÓN:\n${v('Interesado/a','Interesados/as')}\nExpediente\nOf. De Partes\n${inicialesDistribucion()}`));
+  bloques.push(bl('firma', firma));
 
-function generarResolucion(){
-  const p = partesResolucion();
-  return `${p.materia}\n\n${p.cuerpo}\n\n${p.de}`;
+  return {materia, fecha, de: firma, a, bloques};
 }
 
 function partesNotificacion(){
@@ -2088,50 +2531,77 @@ function partesNotificacion(){
   const sufijoS = d.subrogancia ? '(S)' : '';
   const acoge = state.tipoNotificacion === 'acoge';
   const ordN = val('ordN') || '0';
-  const direccion = val('destDireccion') || `${d.ubicacion}, ${d.comuna}, ${d.provincia}.`;
   const fecha = fechaCorta(d.fecha);
 
+  /* La notificación puede ir a todos los solicitantes o sólo a uno: así se
+     emite una carta por cada interesado sin tocar el resto del expediente. */
+  const destinatarios = solicitantesNotificados();
+  const variosDest = destinatarios.length > 1;
+  const ubicacionInmueble = `${d.ubicacion}, ${d.comuna}, ${d.provincia}.`;
+
+  /* Cada destinatario con su propio domicilio; si no tiene, se usa la dirección
+     general del campo "Dirección de notificación" o la del inmueble. */
+  const direccionGeneral = val('destDireccion') || ubicacionInmueble;
+  const lineasA = destinatarios.map(p=>{
+    const dom = p.domicilio || direccionGeneral;
+    const trato = p.genero === 'F' ? 'SEÑORA' : 'SEÑOR';
+    return `${trato} ${upper(blank(p.nombre,'____________________'))}\n${dom}`;
+  });
+  const a = lineasA.join('\n\n');
+
+  const nombresDest = tratamientoYNombre(destinatarios);
   const materia = acoge
-    ? `Acoge solicitud de ${donDona()} ${upper(d.nombre)}.`
-    : `Deniega solicitud de ${donDona()} ${upper(d.nombre)}.`;
+    ? `Acoge solicitud de ${nombresDest}.`
+    : `Deniega solicitud de ${nombresDest}.`;
 
   const de = `SECRETARIO REGIONAL MINISTERIAL DE BIENES NACIONALES${sufijoS} REGIÓN ${upper(d.region)}.`;
-  const a = `${senorSenora()} ${upper(d.nombre)}\n${direccion}`;
 
   const cuerpoResuelve = acoge
-    ? `1) Acoge Solicitud de regularización de Título de dominio conforme al procedimiento establecido en D.L. 2695/79 presentada por usted.`
-    : `1) Denegar Solicitud de regularización de título de dominio conforme al procedimiento establecido en D.L. N°2.695/79 presentada por usted.`;
+    ? `1) Acoge Solicitud de regularización de Título de dominio conforme al procedimiento establecido en D.L. 2695/79 presentada por ${variosDest? 'ustedes':'usted'}.`
+    : `1) Denegar Solicitud de regularización de título de dominio conforme al procedimiento establecido en D.L. N°2.695/79 presentada por ${variosDest? 'ustedes':'usted'}.`;
 
   const cabecera = `Exp.Nº: ${d.expN}\nORD. Nº: E-${ordN}\nANT.: Su solicitud de regularización D.L. Nº 2.695/79.-`;
 
-  const cuerpo = `${cabecera}
+  const bloques = [];
+  bloques.push(bl('cabecera', `${cabecera}\nMAT.: ${materia}\nFecha: ${fecha}`));
+  bloques.push(bl('de', `DE: ${de}`));
+  /* Un bloque por destinatario, así con varios solicitantes cada uno queda en su
+     propio párrafo (y se puede corregir su domicilio sin tocar los demás). */
+  lineasA.forEach((linea,i)=>{
+    bloques.push(bl('a-'+i, (i===0 ? 'A: ' : '') + linea));
+  });
+  bloques.push(bl('intro', `Mediante la presente, sírvase recibir copia de Resolución Exenta, a través de la cual este Ministerio ha resuelto lo siguiente:`));
+  bloques.push(bl('resuelve', cuerpoResuelve));
+  bloques.push(bl('recursos', `Informo a ${variosDest? 'ustedes':'usted'} que, en contra de la presente Resolución, ${v('podrá','podrán')} interponerse los recursos contemplados en el Título IV de la Ley 19.880, que establece las Bases de los Procedimientos Administrativos que rigen los actos de los Órganos de la Administración del Estado.`));
+  bloques.push(bl('contacto', `Para mayor información, sus consultas hágalas a la línea 800 104 559, de manera gratuita, o bien comunicándose directamente al fono 71 2616288 SECRETARÍA REGIONAL MINISTERIAL DE BIENES NACIONALES DE LA REGIÓN ${upper(d.region)}.`));
+  bloques.push(bl('saluda', 'Saluda atentamente,'));
+  bloques.push(bl('firma', `${upper(d.seremi)}\n${de}`));
+  bloques.push(bl('distribucion', `DISTRIBUCIÓN:\n${variosDest? 'Interesados/as':'Interesado/a'}\nExpediente\nOf. De Partes\n${inicialesDistribucion()}`));
 
-Mediante la presente, sírvase recibir copia de Resolución Exenta, a través de la cual este Ministerio ha resuelto lo siguiente:
-
-${cuerpoResuelve}
-
-Informo a usted que, en contra de la presente Resolución, podrán interponerse los recursos contemplados en el Título IV de la Ley 19.880, que establece las Bases de los Procedimientos Administrativos que rigen los actos de los Órganos de la Administración del Estado.
-
-Para mayor información, sus consultas hágalas a la línea 800 104 559, de manera gratuita, o bien comunicándose directamente al fono 71 2616288 SECRETARÍA REGIONAL MINISTERIAL DE BIENES NACIONALES DE LA REGIÓN ${upper(d.region)}.
-
-Saluda atentamente,
-
-${upper(d.seremi)}
-${de}
-
-DISTRIBUCIÓN:
-Interesado/a
-Expediente
-Of. De Partes
-FBP/MBM/KTU`;
-
-  return {materia, fecha, de, a, cuerpo, cabecera};
+  return {materia, fecha, de, a, bloques, cabecera};
 }
 
-function generarNotificacion(){
-  const p = partesNotificacion();
-  return `${p.cabecera}\nMAT.: ${p.materia}\nFecha: ${p.fecha}\n\nDE: ${p.de}\n\nA: ${p.a}\n\n${p.cuerpo.slice(p.cabecera.length)}`;
+/* Las iniciales de distribución se calculan desde los nombres reales que están
+   en el formulario (SEREMI / abogado tutor / postulante), en lugar de quedar
+   escritas a mano en el documento. */
+function inicialesDistribucion(){
+  /* Convención del Servicio: inicial del primer nombre + inicial de cada
+     apellido, ignorando los nombres intermedios.
+     "Flavio Esteban Bazzi Pezoa" -> FBP · "Mario Brevis Morales" -> MBM */
+  const ini = (nombre)=>{
+    const partes = (nombre||'').trim().split(/\s+/).filter(Boolean);
+    if(partes.length === 0) return '';
+    if(partes.length <= 3) return partes.map(p=>p[0].toUpperCase()).join('');
+    return [partes[0], partes[partes.length-2], partes[partes.length-1]]
+             .map(p=>p[0].toUpperCase()).join('');
+  };
+  const trio = [ini(val('seremi')), ini(val('abogado')), ini(val('postulante'))].filter(Boolean);
+  return trio.length ? trio.join('/') : '____/____/____';
 }
+
+function generarInforme(){ return textoDocumento('informe'); }
+function generarResolucion(){ return textoDocumento('resolucion'); }
+function generarNotificacion(){ return textoDocumento('notificacion'); }
 
 /* ============================================================
    RENDER PRINCIPAL
@@ -2141,102 +2611,346 @@ function activeMainTab(){
   return btn ? btn.dataset.tab : 'informe';
 }
 
+/* Bloques "en bruto" del documento, tal como salen del formulario. */
+function partesDe(tab){
+  if(tab === 'informe') return partesInforme();
+  if(tab === 'resolucion') return partesResolucion();
+  if(tab === 'notificacion') return partesNotificacion();
+  return null;
+}
+
+function edicionesDe(tab){
+  if(!state.docEdits[tab]) state.docEdits[tab] = {edits:{}, extras:[]};
+  const e = state.docEdits[tab];
+  if(!e.edits) e.edits = {};
+  if(!Array.isArray(e.extras)) e.extras = [];
+  return e;
+}
+
+/* ------------------------------------------------------------------
+   Combina los bloques recién generados con tus ediciones manuales:
+     · si editaste un bloque, se muestra TU texto (y el automático queda
+       guardado en .auto para poder compararlo o restaurarlo)
+     · si borraste un bloque (edición vacía), no se muestra
+     · los párrafos que agregaste tú se insertan tras el bloque que los ancla
+   ------------------------------------------------------------------ */
+function bloquesFinales(tab, base){
+  const ed = edicionesDe(tab);
+  const salida = [];
+
+  const insertarExtras = (ancla)=>{
+    ed.extras.filter(x => x.after === ancla).forEach(x=>{
+      salida.push({id: x.id, texto: x.texto, editado: true, extra: true, auto: ''});
+    });
+  };
+
+  insertarExtras('');   // párrafos que agregaste al comienzo del documento
+  base.forEach(b=>{
+    const tieneEdicion = Object.prototype.hasOwnProperty.call(ed.edits, b.id);
+    const texto = tieneEdicion ? ed.edits[b.id] : b.texto;
+    if(texto !== ''){
+      salida.push({id: b.id, texto: texto, editado: tieneEdicion, extra: false, auto: b.texto});
+    }
+    insertarExtras(b.id);
+  });
+  return salida;
+}
+
+/* Texto completo de un documento, con las ediciones ya aplicadas. */
+function textoDocumento(tab){
+  const partes = partesDe(tab);
+  if(!partes) return '';
+  return bloquesFinales(tab, partes.bloques).map(b=>b.texto).join('\n\n');
+}
+
 function generar(){
   guardarTodo();   // cada regeneración deja el trabajo guardado en el navegador
+  sincronizarEspejosSolicitante();
   const tab = activeMainTab();
-  if(tab==='oficios') return;
-  let autoTexto = '', partes = null;
-  if(tab==='informe'){ partes = partesInforme(); autoTexto = `${partes.materia}\n\n${partes.cuerpo}\n\n${partes.de}`; }
-  else if(tab==='resolucion'){ partes = partesResolucion(); autoTexto = `${partes.materia}\n\n${partes.cuerpo}\n\n${partes.de}`; }
-  else if(tab==='notificacion'){ partes = partesNotificacion(); autoTexto = generarNotificacion(); }
-  else return;
+  if(tab === 'oficios') return;
 
+  const partes = partesDe(tab);
+  if(!partes) return;
   state.lastPartes = partes;
 
-  /* Si hay ediciones manuales guardadas para esta pestaña, se conservan;
-     de lo contrario se usa el texto recién generado desde el formulario. */
-  let texto;
-  if(state.previewDirty[tab] && state.previewText[tab]){
-    texto = state.previewText[tab];
-  } else {
-    texto = autoTexto;
-    state.previewText[tab] = texto;
+  const bloques = bloquesFinales(tab, partes.bloques);
+  /* Se recuerda exactamente lo que se mostró para poder detectar, cuando
+     escribas en la vista previa, QUÉ párrafo cambiaste. */
+  state.lastRender[tab] = bloques.map(b=>({id:b.id, texto:b.texto}));
+
+  const preview = q('preview');
+  const texto = bloques.map(b=>b.texto).join('\n\n');
+  /* Sólo se reescribe el textarea si el contenido cambió, para no mover el
+     cursor mientras el usuario está escribiendo. */
+  if(preview.value !== texto){
+    const pos = preview.selectionStart;
+    const finalDoc = preview.value.length;
+    preview.value = texto;
+    if(document.activeElement === preview){
+      const nuevaPos = (pos >= finalDoc) ? texto.length : Math.min(pos, texto.length);
+      preview.setSelectionRange(nuevaPos, nuevaPos);
+    }
   }
 
-  q('preview').value = texto;
-  renderFieldsGrid(partes);
-  syncFieldsFromPreview();
+  renderFieldsGrid(partes, bloques);
+  renderEdicionesPanel(tab, bloques);
+  actualizarStatus(tab, bloques);
+}
 
-  const nombre = val('nombre');
-  const avisoEdicion = state.previewDirty[tab]
-    ? ' · <b>edición manual activa</b> (tus cambios en la vista previa se conservan al cambiar de pestaña)'
+function actualizarStatus(tab, bloques){
+  const editados = bloques.filter(b=>b.editado).length;
+  const personas = sols();
+  const conNombre = personas.filter(p=>p.nombre.trim());
+  const aviso = editados
+    ? ` · <b>${editados} ${editados===1?'párrafo editado':'párrafos editados'} a mano</b> (se conservan al cambiar datos)`
     : '';
-  q('statusLine').innerHTML = nombre
-    ? `Documento listo para <b>${nombre}</b> · género: ${state.genero==='F'?'femenino':'masculino'}${avisoEdicion} · edítalo libremente antes de copiar.`
-    : `Ingresa el nombre ${g('del solicitante','de la solicitante')} para personalizar el documento.`;
-}
 
-/* Marca la pestaña actual como "regenerar desde el formulario",
-   descartando cualquier edición manual guardada, y vuelve a generar. */
-function regenerarDesdeFormulario(){
-  const tab = activeMainTab();
-  if(tab==='oficios') return;
-  state.previewDirty[tab] = false;
-  generar();
-  flashStatus('Vista previa regenerada desde el formulario ✓');
-}
-
-/* Cada vez que el usuario escribe directamente en la vista previa,
-   se guarda el cambio (por pestaña) y se refleja de inmediato en los
-   "Campos para copiar al portal", sin esperar a un nuevo "Actualizar". */
-function onPreviewInput(){
-  const tab = activeMainTab();
-  if(tab==='oficios') return;
-  state.previewDirty[tab] = true;
-  state.previewText[tab] = q('preview').value;
-  syncFieldsFromPreview();
-}
-
-/* Sincroniza los campos de copiado (Materia/Fecha/De/A/Cuerpo) con el
-   contenido actual de la vista previa, sin reconstruir el grid completo
-   (así no se pierde el foco/cursor mientras se escribe). */
-function syncFieldsFromPreview(){
-  const tab = activeMainTab();
-  const partes = state.lastPartes;
-  if(!partes || tab==='oficios') return;
-  const texto = q('preview').value;
-
-  if(tab==='notificacion'){
-    if(q('fCuerpo')) q('fCuerpo').value = texto;
-    if(q('fMateria')) q('fMateria').value = partes.materia;
-    if(q('fDe')) q('fDe').value = partes.de;
-    if(q('fA')) q('fA').value = partes.a || '(no aplica / documento interno)';
-    if(q('fFecha')) q('fFecha').value = partes.fecha;
+  let quien;
+  if(conNombre.length === 0){
+    q('statusLine').innerHTML = `Ingresa el nombre ${delSolicitante()} para personalizar el documento.${aviso}`;
     return;
   }
+  if(conNombre.length === 1) quien = `<b>${escapeHtml(conNombre[0].nombre)}</b>`;
+  else quien = `<b>${conNombre.length} solicitantes</b> (${escapeHtml(conNombre.map(p=>p.nombre.split(/\s+/)[0]).join(', '))})`;
 
-  let cuerpo = texto;
-  const prefix = partes.materia + '\n\n';
-  const suffix = '\n\n' + partes.de;
-  if(cuerpo.startsWith(prefix)) cuerpo = cuerpo.slice(prefix.length);
-  if(cuerpo.endsWith(suffix)) cuerpo = cuerpo.slice(0, cuerpo.length - suffix.length);
-
-  if(q('fCuerpo')) q('fCuerpo').value = cuerpo;
-  if(q('fMateria')) q('fMateria').value = partes.materia;
-  if(q('fDe')) q('fDe').value = partes.de;
-  if(q('fA')) q('fA').value = partes.a || '(no aplica / documento interno)';
-  if(q('fFecha')) q('fFecha').value = partes.fecha;
+  q('statusLine').innerHTML =
+    `Documento listo para ${quien} · ${variosSolicitantes()? 'plural':'singular'} ${generoGrupo()==='F'?'femenino':'masculino'}${aviso} · edítalo libremente antes de copiar.`;
 }
 
-function renderFieldsGrid(partes){
+/* Descarta TODAS las ediciones manuales de la pestaña actual. */
+function regenerarDesdeFormulario(){
+  const tab = activeMainTab();
+  if(tab === 'oficios') return;
+  state.docEdits[tab] = {edits:{}, extras:[]};
+  generar();
+  flashStatus('Documento regenerado completo desde el formulario ✓');
+}
+
+/* Devuelve un solo párrafo a su redacción automática. */
+function restaurarBloque(tab, id){
+  const ed = edicionesDe(tab);
+  delete ed.edits[id];
+  ed.extras = ed.extras.filter(x => x.id !== id);
+  generar();
+  flashStatus('Párrafo devuelto a su texto automático ✓');
+}
+
+/* ------------------------------------------------------------------
+   Detecta qué párrafos cambiaste al escribir en la vista previa y guarda
+   SÓLO esos. Se comparan los párrafos mostrados con los actuales mediante
+   una alineación tipo LCS, de modo que insertar, borrar o reescribir un
+   párrafo no arrastra a los demás.
+   ------------------------------------------------------------------ */
+function onPreviewInput(){
+  const tab = activeMainTab();
+  if(tab === 'oficios') return;
+
+  const base = state.lastRender[tab] || [];
+  const nuevos = q('preview').value.split(/\n{2,}/).map(t=>t.trim());
+  const ed = edicionesDe(tab);
+
+  const pasos = alinearParrafos(base.map(b=>b.texto), nuevos);
+
+  /* Se reconstruyen las ediciones desde cero en cada pulsación, para que al
+     deshacer un cambio el párrafo vuelva a considerarse "no editado". */
+  const nuevasEdits = {};
+  const nuevosExtras = [];
+  /* Se conservan las ediciones de bloques que ahora no están visibles (por
+     ejemplo párrafos de la otra rama del informe o de otra observación). */
+  Object.keys(ed.edits).forEach(id=>{
+    if(!base.some(b=>b.id === id)) nuevasEdits[id] = ed.edits[id];
+  });
+
+  let ancla = '';   // id del último bloque conocido, para anclar los añadidos
+  pasos.forEach(paso=>{
+    if(paso.tipo === 'igual'){
+      const b = base[paso.i];
+      /* Si el texto mostrado venía de una edición previa, se mantiene. */
+      if(Object.prototype.hasOwnProperty.call(ed.edits, b.id)) nuevasEdits[b.id] = b.texto;
+      const ex = ed.extras.find(x=>x.id === b.id);
+      if(ex) nuevosExtras.push({after: ex.after, id: ex.id, texto: b.texto});
+      ancla = b.id;
+    } else if(paso.tipo === 'cambiado'){
+      const b = base[paso.i];
+      const ex = ed.extras.find(x=>x.id === b.id);
+      if(ex) nuevosExtras.push({after: ex.after, id: ex.id, texto: nuevos[paso.j]});
+      else nuevasEdits[b.id] = nuevos[paso.j];
+      ancla = b.id;
+    } else if(paso.tipo === 'borrado'){
+      const b = base[paso.i];
+      const ex = ed.extras.find(x=>x.id === b.id);
+      if(!ex) nuevasEdits[b.id] = '';   // '' = párrafo suprimido a mano
+      ancla = b.id;
+    } else if(paso.tipo === 'agregado'){
+      const texto = nuevos[paso.j];
+      if(texto !== ''){
+        nuevosExtras.push({after: ancla, id: 'libre-' + (++_contadorExtras), texto: texto});
+      }
+    }
+  });
+
+  ed.edits = nuevasEdits;
+  ed.extras = nuevosExtras;
+
+  /* Se refresca la vista previa desde los bloques: así el textarea, los campos
+     de copiado y el panel de párrafos editados quedan siempre coherentes. */
+  const partes = partesDe(tab);
+  state.lastPartes = partes;
+  const bloques = bloquesFinales(tab, partes.bloques);
+  state.lastRender[tab] = bloques.map(b=>({id:b.id, texto:b.texto}));
+
+  renderFieldsGrid(partes, bloques);
+  renderEdicionesPanel(tab, bloques);
+  actualizarStatus(tab, bloques);
+  guardarTodo();
+}
+
+let _contadorExtras = 0;
+
+/* Alineación de párrafos por igualdad exacta (LCS). Devuelve una secuencia de
+   pasos: igual / cambiado / borrado / agregado. Los tramos que no coinciden se
+   emparejan en orden, que es lo que ocurre al reescribir un párrafo. */
+function alinearParrafos(viejos, nuevos){
+  const n = viejos.length, m = nuevos.length;
+  const dp = [];
+  for(let i=0;i<=n;i++) dp.push(new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--){
+    for(let j=m-1;j>=0;j--){
+      dp[i][j] = (viejos[i] === nuevos[j])
+        ? dp[i+1][j+1] + 1
+        : Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  const crudo = [];
+  let i=0, j=0;
+  while(i<n && j<m){
+    if(viejos[i] === nuevos[j]){ crudo.push({tipo:'igual', i:i, j:j}); i++; j++; }
+    else if(dp[i+1][j] >= dp[i][j+1]){ crudo.push({tipo:'soloViejo', i:i}); i++; }
+    else { crudo.push({tipo:'soloNuevo', j:j}); j++; }
+  }
+  while(i<n){ crudo.push({tipo:'soloViejo', i:i}); i++; }
+  while(j<m){ crudo.push({tipo:'soloNuevo', j:j}); j++; }
+
+  /* Los tramos consecutivos de "soloViejo" + "soloNuevo" se emparejan: es una
+     reescritura, no un borrado seguido de una inserción. */
+  const pasos = [];
+  let k = 0;
+  while(k < crudo.length){
+    if(crudo[k].tipo === 'igual'){ pasos.push(crudo[k]); k++; continue; }
+    const viejosTramo = [], nuevosTramo = [];
+    while(k < crudo.length && crudo[k].tipo !== 'igual'){
+      if(crudo[k].tipo === 'soloViejo') viejosTramo.push(crudo[k].i);
+      else nuevosTramo.push(crudo[k].j);
+      k++;
+    }
+    const pares = Math.min(viejosTramo.length, nuevosTramo.length);
+    for(let t=0;t<pares;t++) pasos.push({tipo:'cambiado', i:viejosTramo[t], j:nuevosTramo[t]});
+    for(let t=pares;t<viejosTramo.length;t++) pasos.push({tipo:'borrado', i:viejosTramo[t]});
+    for(let t=pares;t<nuevosTramo.length;t++) pasos.push({tipo:'agregado', j:nuevosTramo[t]});
+  }
+  return pasos;
+}
+
+/* Panel con los párrafos que editaste a mano, para poder devolver cualquiera
+   de ellos a su texto automático sin perder los demás. */
+function renderEdicionesPanel(tab, bloques){
+  const panel = q('edicionesPanel');
+  if(!panel) return;
+  const editados = bloques.filter(b=>b.editado);
+  if(editados.length === 0){ panel.style.display = 'none'; panel.innerHTML = ''; return; }
+
+  panel.style.display = 'block';
+  panel.innerHTML =
+    `<h3>✎ ${editados.length} ${editados.length===1?'párrafo editado a mano':'párrafos editados a mano'}</h3>
+     <p class="ed-hint">Estos párrafos ya no se regeneran solos: se conservan tal como los escribiste aunque cambies datos del formulario o marques observaciones. Puedes devolver cualquiera a su redacción automática.</p>` +
+    editados.map(b=>`
+      <div class="ed-row">
+        <div class="ed-tit">
+          <b>${escapeHtml(etiquetaBloque(b))}</b>
+          <span class="ed-frag">${escapeHtml(b.texto.slice(0,110))}${b.texto.length>110?'…':''}</span>
+        </div>
+        ${b.extra
+          ? `<button type="button" class="btn btn-outline btn-sm" onclick="restaurarBloque('${tab}','${b.id}')" title="Quitar este párrafo que agregaste">✕ Quitar</button>`
+          : `<button type="button" class="btn btn-outline btn-sm" onclick="restaurarBloque('${tab}','${b.id}')" title="Volver al texto generado automáticamente">↺ Restaurar</button>`}
+      </div>`).join('');
+}
+
+/* Nombre legible de cada bloque, para el panel de ediciones. */
+const ETIQUETAS_BLOQUE = {
+  materia:'Materia', encabezado:'Encabezado / región y fecha',
+  p1:'Punto 1 — resultado del análisis', p2:'Punto 2 — solicitantes',
+  p3:'Punto 3 — individualización del inmueble', 'p3-titulo':'Punto 3 — título de dominio',
+  'p3-ampara':'Punto 3 — forma en que ampara', 'p3-avaluo':'Punto 3 — avalúo fiscal',
+  'p3-cierre':'Punto 3 — cierre (artículo 8º)',
+  p4:'Punto 4 — encabezado', 'p4-a':'Punto 4 a) — origen de la posesión',
+  'p4-b':'Punto 4 b) — posesión material', 'p4-c':'Punto 4 c) — ejercicio de la posesión',
+  'p4-d':'Punto 4 d) — juicio pendiente', 'p4-e':'Punto 4 e) — requisitos del artículo 2º',
+  p5:'Punto 5 — título', 'p5-texto':'Punto 5 — procedencia',
+  'obs-titulo':'Observaciones — título', cierre:'Párrafo de cierre', firma:'Firma',
+  exp:'N° de expediente', lugarFecha:'Lugar y fecha', resN:'N° de resolución',
+  'vistos-titulo':'VISTOS — título', vistos:'VISTOS', 'cons-titulo':'CONSIDERANDO — título',
+  'cons-1':'Considerando 1', 'cons-2':'Considerando 2', 'cons-3':'Considerando 3',
+  'cons-4':'Considerando 4', 'resuelvo-titulo':'RESUELVO — título',
+  'res-1':'Resuelvo 1', 'res-2':'Resuelvo 2', 'res-3':'Resuelvo 3 — publicación',
+  'res-anotese':'Anótese, notifíquese y archívese', distribucion:'Distribución',
+  cabecera:'Cabecera (Exp / ORD / MAT)', de:'DE (emisor)',
+  'a-0':'A (destinatario)', 'a-1':'A (2° destinatario)', 'a-2':'A (3° destinatario)',
+  intro:'Párrafo de apertura', resuelve:'Lo resuelto', recursos:'Recursos (Ley 19.880)',
+  contacto:'Datos de contacto', saluda:'Despedida',
+  'mo-vacio':'Motivos de rechazo', 'obs-vacia':'Observaciones'
+};
+
+function etiquetaBloque(b){
+  if(b.extra) return 'Párrafo agregado por ti';
+  if(ETIQUETAS_BLOQUE[b.id]) return ETIQUETAS_BLOQUE[b.id];
+  if(/^a-\d+$/.test(b.id)) return 'A (destinatario ' + (parseInt(b.id.slice(2),10)+1) + ')';
+  if(b.id.indexOf('obs-extra-') === 0) return 'Observación adicional (texto libre)';
+  if(b.id.indexOf('obs-') === 0){
+    const fila = q('row-' + b.id);
+    const lbl = fila ? fila.querySelector('.lbl') : null;
+    return 'Observación — ' + (lbl ? lbl.textContent.trim() : b.id.slice(4));
+  }
+  if(b.id.indexOf('mo-') === 0) return 'Motivo de rechazo — ' + labelMotivo(b.id.slice(3));
+  return b.id;
+}
+
+/* Sincroniza los campos de copiado (Materia/Fecha/De/A/Cuerpo) con los bloques
+   actuales, sin reconstruir el grid completo (así no se pierde el cursor). */
+function syncFieldsFromPreview(){
+  const tab = activeMainTab();
+  if(tab === 'oficios') return;
+  const partes = state.lastPartes;
+  if(!partes) return;
+  renderFieldsGrid(partes, bloquesFinales(tab, partes.bloques));
+}
+
+function renderFieldsGrid(partes, bloques){
   const grid = q('fieldsGrid');
   if(!grid || !partes) return;
+  const tab = activeMainTab();
+  const lista = bloques || bloquesFinales(tab, partes.bloques);
+  const buscar = (id)=>{ const b = lista.find(x=>x.id===id); return b ? b.texto : ''; };
+
+  /* El "Cuerpo" se toma de los bloques actuales (ya con tus ediciones), sin la
+     materia ni la firma, que van en sus propias casillas del portal. */
+  let cuerpo, materia, de;
+  if(tab === 'notificacion'){
+    /* La notificación se pega completa: incluye su propia cabecera MAT/DE/A. */
+    cuerpo = lista.map(b=>b.texto).join('\n\n');
+    materia = partes.materia;
+    de = partes.de;
+  } else {
+    cuerpo = lista.filter(b=>b.id!=='materia' && b.id!=='firma').map(b=>b.texto).join('\n\n');
+    materia = buscar('materia') || partes.materia;
+    de = buscar('firma') || partes.de;
+  }
+
   const campos = [
-    {id:'fMateria', label:'Materia', value: partes.materia},
+    {id:'fMateria', label:'Materia', value: materia},
     {id:'fFecha', label:'Fecha', value: partes.fecha},
-    {id:'fDe', label:'De (Emisor)', value: partes.de},
+    {id:'fDe', label:'De (Emisor)', value: de},
     {id:'fA', label:'A (Receptor)', value: partes.a || '(no aplica / documento interno)'},
-    {id:'fCuerpo', label:'Cuerpo', value: partes.cuerpo}
+    {id:'fCuerpo', label:'Cuerpo', value: cuerpo}
   ];
   grid.innerHTML = campos.map(c=>`
     <div class="field-copy">
@@ -2582,12 +3296,12 @@ function renderOficioTipo(){
    ============================================================ */
 
 const MASIVO_CAMPOS = [
-  {k:'exp',         etiqueta:'EXP.',        ph:'231374',  fmt:'digits'},
-  {k:'rut',         etiqueta:'RUT',         ph:'11.370.780-1', fmt:'rut'},
-  {k:'solicitante', etiqueta:'SOLICITANTE', ph:'FRESIA VIVIANA RAMÍREZ GONZÁLEZ'},
-  {k:'ubicacion',   etiqueta:'UBICACIÓN',   ph:'PASAJE INTERIOR S/N, BOYERUCA, VICHUQUÉN.'},
-  {k:'rol',         etiqueta:'ROL',         ph:'ROL N°163-85, VICHUQUÉN.'},
-  {k:'inscripcion', etiqueta:'INSCRIPCIÓN', ph:'FOJAS 1.625, Nº 432 DEL AÑO 2015 DEL REGISTRO DE PROPIEDAD DEL CBR DE LICANTÉN.'}
+  {k:'exp',         etiqueta:'EXP.',        ph:'',  fmt:'digits'},
+  {k:'rut',         etiqueta:'RUT',         ph:'', fmt:'rut'},
+  {k:'solicitante', etiqueta:'SOLICITANTE', ph:''},
+  {k:'ubicacion',   etiqueta:'UBICACIÓN',   ph:''},
+  {k:'rol',         etiqueta:'ROL',         ph:''},
+  {k:'inscripcion', etiqueta:'INSCRIPCIÓN', ph:''}
 ];
 
 function masivoFilaVacia(){
@@ -2796,7 +3510,7 @@ function datosOficioMasivo(){
     destinatario: destinatarioMasivo(),
     intro_frase: intro,
     ref_solicitante: varios ? 'los solicitantes' : 'el solicitante',
-    iniciales: blank(val('ofIniciales'),'____/____/____'),
+    iniciales: val('ofIniciales') || inicialesDistribucion(),
     __filas: filas.map(f=>({
       exp: blank(f.exp,'—'),
       rut: blank(f.rut,'—'),
@@ -2887,7 +3601,7 @@ function datosOficioActuales(){
     email_contacto: blank(val('ofEmailContacto'),'____________'),
     rol_avaluo: blank(val('ofRolAvaluo'),'____________'),
     seremi_mayus: upper(blank(val('ofSeremi'),'____________________')),
-    iniciales: blank(val('ofIniciales'),'____/____/____')
+    iniciales: val('ofIniciales') || inicialesDistribucion()
   };
 }
 
@@ -3124,6 +3838,10 @@ const SELECTOR_CAMPOS = '#sidePanel, #tab-informe, #tab-resolucion, #tab-notific
 // Mientras se restaura no se vuelve a guardar ni a regenerar en cada paso.
 let _restaurando = false;
 let _guardarTimer = null;
+/* Durante el arranque tampoco se guarda: así, al abrir la herramienta (o justo
+   después de "Iniciar de nuevo"), no queda escrito un borrador en blanco. El
+   guardado empieza recién cuando el usuario escribe algo. */
+let _iniciando = true;
 
 function camposGuardables(){
   const salida = [];
@@ -3137,13 +3855,13 @@ function camposGuardables(){
 }
 
 function guardarTodo(){
-  if(_restaurando) return;
+  if(_restaurando || _borrando || _iniciando) return;
   clearTimeout(_guardarTimer);
   _guardarTimer = setTimeout(guardarAhora, 350);
 }
 
 function guardarAhora(){
-  if(_restaurando) return;
+  if(_restaurando || _borrando || _iniciando) return;
   try{
     const campos = {};
     camposGuardables().forEach(el=>{
@@ -3155,6 +3873,7 @@ function guardarAhora(){
       guardadoEn: new Date().toISOString(),
       campos: campos,
       estado: {
+        solicitantes: state.solicitantes,
         genero: state.genero,
         resultado: state.resultado,
         esFiscal: state.esFiscal,
@@ -3166,8 +3885,8 @@ function guardarAhora(){
         presuntosTipo: state.presuntosTipo,
         motivosOrden: state.motivosOrden,
         masivoFilas: state.masivoFilas,
-        previewDirty: state.previewDirty,
-        previewText: state.previewText
+        /* ediciones manuales por párrafo de cada documento */
+        docEdits: state.docEdits
       }
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(datos));
@@ -3206,6 +3925,27 @@ function restaurarTodo(){
     const est = datos.estado || {};
 
     // 1) estado interno
+    if(Array.isArray(est.solicitantes) && est.solicitantes.length){
+      state.solicitantes = est.solicitantes.map(p=>({
+        nombre: p.nombre || '', genero: p.genero === 'F' ? 'F' : 'M',
+        rut: p.rut || '', domicilio: p.domicilio || ''
+      }));
+    } else if('nombre' in campos || 'rut' in campos){
+      /* Borradores de la versión anterior (un solo solicitante con campos
+         #nombre y #rut): se convierten en el primer solicitante de la lista. */
+      state.solicitantes = [{
+        nombre: campos.nombre || '',
+        genero: est.genero === 'M' ? 'M' : 'F',
+        rut: campos.rut || '',
+        domicilio: ''
+      }];
+    }
+    if(est.docEdits){
+      ['informe','resolucion','notificacion'].forEach(t=>{
+        const d = est.docEdits[t];
+        if(d) state.docEdits[t] = {edits: d.edits || {}, extras: Array.isArray(d.extras) ? d.extras : []};
+      });
+    }
     if(est.genero) state.genero = est.genero;
     if(est.resultado) state.resultado = est.resultado;
     if(typeof est.esFiscal === 'boolean') state.esFiscal = est.esFiscal;
@@ -3217,8 +3957,6 @@ function restaurarTodo(){
     if(est.presuntosTipo) state.presuntosTipo = est.presuntosTipo;
     if(Array.isArray(est.motivosOrden)) state.motivosOrden = est.motivosOrden;
     if(Array.isArray(est.masivoFilas)) state.masivoFilas = est.masivoFilas;
-    if(est.previewDirty) state.previewDirty = est.previewDirty;
-    if(est.previewText) state.previewText = est.previewText;
 
     // 2) el modo de adquisición crea campos dinámicos: primero se fija el
     //    modo, luego se dibujan sus campos y sólo después se rellenan.
@@ -3238,8 +3976,6 @@ function restaurarTodo(){
     camposGuardables().forEach(aplicar);
 
     // 3) botones de dos estados y clases de las filas marcadas
-    q('btnF').classList.toggle('active', state.genero==='F');
-    q('btnM').classList.toggle('active', state.genero==='M');
     q('btnFiscalSi').classList.toggle('active', state.esFiscal===true);
     q('btnFiscalNo').classList.toggle('active', state.esFiscal===false);
     q('btnSi').classList.toggle('active', state.resultado==='si');
@@ -3251,19 +3987,27 @@ function restaurarTodo(){
     q('btnNotAcoge').classList.toggle('active', state.tipoNotificacion==='acoge');
     q('btnNotDeniega').classList.toggle('active', state.tipoNotificacion==='deniega');
 
-    document.querySelectorAll('#sidePanel input[type="checkbox"][id]').forEach(cb=>{
-      const fila = cb.closest('.check-row, .row, label');
-      if(cb.id.indexOf('mo-') === 0){
-        toggleClass('row-' + cb.id.slice(3), 'checked', cb.checked);
-      } else if(cb.id === 'subrogancia'){
-        toggleClass('rowSubrogancia','checked', cb.checked);
-      } else if(cb.id.indexOf('obs-') === 0){
-        toggleClass('row-' + cb.id, 'checked', cb.checked);
-      }
-      if(fila) fila.classList.toggle('checked', cb.checked);
+    /* Los checkbox de observaciones y motivos viven en #tab-informe, no sólo en
+       #sidePanel: se recorren todas las zonas guardables para que sus filas
+       recuperen el resaltado y muestren sus campos dependientes. */
+    document.querySelectorAll(SELECTOR_CAMPOS).forEach(zona=>{
+      zona.querySelectorAll('input[type="checkbox"][id]').forEach(cb=>{
+        const fila = cb.closest('.check-row, .row, label');
+        if(cb.id.indexOf('mo-') === 0){
+          const row = q('row-' + cb.id.slice(3));
+          if(row) row.classList.toggle('checked', cb.checked);
+        } else if(cb.id === 'subrogancia'){
+          toggleClass('rowSubrogancia','checked', cb.checked);
+        } else if(cb.id.indexOf('obs-') === 0){
+          const row = q('row-' + cb.id);
+          if(row) row.classList.toggle('checked', cb.checked);
+        }
+        if(fila) fila.classList.toggle('checked', cb.checked);
+      });
     });
 
-    // 4) los presuntos dueños se dibujan desde el estado (no tienen id propio)
+    // 4) las listas que no tienen id propio se dibujan desde el estado
+    renderSolicitantes();
     renderPresuntos();
 
     // las etiquetas y equivalencias de superficie siguen a la unidad guardada
@@ -3277,6 +4021,17 @@ function restaurarTodo(){
       const libre = q('postulanteSelect').value === 'otro';
       q('postulante').style.display = libre ? 'block' : 'none';
     }
+
+    /* Los párrafos que el usuario agregó a mano se llaman libre-1, libre-2…
+       El contador arranca después del mayor recuperado para no repetir ids. */
+    let mayor = 0;
+    Object.keys(state.docEdits).forEach(t=>{
+      (state.docEdits[t].extras || []).forEach(x=>{
+        const m = /^libre-(\d+)$/.exec(x.id || '');
+        if(m) mayor = Math.max(mayor, parseInt(m[1],10));
+      });
+    });
+    _contadorExtras = mayor;
 
     state.borradorRestaurado = true;
     marcarGuardado(datos.guardadoEn || new Date().toISOString());
@@ -3320,9 +4075,67 @@ function aplicarCamposGuardadosEn(selectorZona){
   return true;
 }
 
+/* ------------------------------------------------------------------
+   INICIAR DE NUEVO — borra absolutamente todo y deja la herramienta como
+   recién abierta.
+
+   Antes esto no funcionaba: se borraba la clave del navegador, pero acto
+   seguido location.reload() disparaba el evento 'beforeunload', que llamaba a
+   guardarAhora() y volvía a escribir el borrador completo. Al recargar, todo
+   reaparecía. Ahora se bloquea cualquier guardado posterior (_borrando), se
+   quita el listener de descarga, se limpia el estado en memoria y el
+   formulario, y sólo entonces se recarga.
+   ------------------------------------------------------------------ */
+let _borrando = false;
+
 function borrarGuardado(){
-  if(!confirm('Se borrarán TODOS los datos guardados en este navegador y la página volverá a estar en blanco.\n\n¿Continuar?')) return;
-  try{ localStorage.removeItem(STORAGE_KEY); } catch(err){ console.warn(err); }
+  if(!confirm('Se borrará TODO: solicitantes, datos del expediente, observaciones, motivos, los párrafos que hayas editado a mano y las filas del oficio masivo.\n\nLa herramienta quedará como recién abierta.\n\n¿Continuar?')) return;
+
+  _borrando = true;
+  clearTimeout(_guardarTimer);
+  window.removeEventListener('beforeunload', guardarAhora);
+
+  /* 1) se borra lo guardado en este navegador (incluidas claves de versiones
+        anteriores de la herramienta) */
+  try{
+    localStorage.removeItem(STORAGE_KEY);
+    Object.keys(localStorage)
+      .filter(k => k.indexOf('dl2695') === 0)
+      .forEach(k => localStorage.removeItem(k));
+  } catch(err){ console.warn('No se pudo limpiar el almacenamiento:', err); }
+
+  /* 2) se vacía el estado en memoria, por si la recarga fuera bloqueada */
+  state.solicitantes = [solicitanteVacio()];
+  state.genero = 'F';
+  state.resultado = 'si';
+  state.esFiscal = false;
+  state.tipoResolucion = 'acoge';
+  state.tipoNotificacion = 'acoge';
+  state.presuntos = [];
+  state.presuntosTipo = 'dueño';
+  state.motivosOrden = [];
+  state.masivoFilas = [];
+  state.calcSup = {totales:null, reg:null};
+  state.docEdits = {
+    informe:      {edits:{}, extras:[]},
+    resolucion:   {edits:{}, extras:[]},
+    notificacion: {edits:{}, extras:[]}
+  };
+  state.lastRender = {informe:[], resolucion:[], notificacion:[]};
+  state.lastPartes = null;
+
+  /* 3) se vacían todos los campos del formulario */
+  camposGuardables().forEach(el=>{
+    if(el.type === 'checkbox' || el.type === 'radio') el.checked = false;
+    else if(el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+
+  /* 4) se deja una marca para avisar, tras la recarga, que quedó todo en blanco */
+  try{ sessionStorage.setItem('dl2695_reiniciado','1'); } catch(err){ /* modo privado */ }
+
+  /* 5) y se recarga para volver al estado inicial exacto (valores por defecto
+        del formulario, pestaña Informe, vista previa en blanco) */
   location.reload();
 }
 
@@ -3336,19 +4149,34 @@ poblarCbrSelect('cbrSelect');
    se arme siempre con el valor ya formateado. */
 initFormatters();
 
-document.querySelectorAll('#sidePanel input, #sidePanel select').forEach(el=>{
-  el.addEventListener('input', generar);
-  el.addEventListener('change', generar);
+/* Cualquier campo del panel izquierdo o de las pestañas del documento vuelve a
+   generar el texto. Se usa delegación de eventos para que también funcionen los
+   campos que se crean dinámicamente (fichas de solicitantes, campos del modo de
+   adquisición, presuntos dueños y los sub-campos de cada motivo de rechazo),
+   que antes sólo se reflejaban al marcar otra casilla. */
+['#sidePanel', '#tab-informe', '#tab-resolucion', '#tab-notificacion'].forEach(sel=>{
+  const zona = document.querySelector(sel);
+  if(!zona) return;
+  ['input','change'].forEach(evt=>{
+    zona.addEventListener(evt, (ev)=>{
+      const el = ev.target;
+      if(!el || !el.tagName) return;
+      if(!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      if(el.type === 'button' || el.type === 'submit') return;
+      generar();
+    });
+  });
 });
-q('obsExtra').addEventListener('input', generar);
 
 renderModoSub();
+renderSolicitantes();
 renderPresuntos();
 
 /* Se recupera el borrador ANTES de generar, así el documento se arma con los
    datos que el usuario ya tenía escritos. */
 const habiaBorrador = restaurarTodo();
 
+renderSolicitantes();
 renderOrdenMotivos();
 initSuperficies();
 calcular();
@@ -3373,6 +4201,21 @@ if(habiaBorrador){
   const av = q('avisoGuardado');
   if(av) av.title = 'Se recuperaron los datos guardados en este navegador.';
 }
+
+/* Arranque terminado: desde aquí ya se guarda cada cambio del usuario. */
+_iniciando = false;
+
+/* Si venimos de "Iniciar de nuevo", se avisa que la herramienta quedó en blanco. */
+try{
+  if(sessionStorage.getItem('dl2695_reiniciado')){
+    sessionStorage.removeItem('dl2695_reiniciado');
+    const av = q('avisoGuardado');
+    if(av){
+      av.textContent = '✓ Se inició de nuevo — todo en blanco';
+      av.title = 'Se borraron todos los datos guardados en este navegador.';
+    }
+  }
+} catch(err){ /* modo privado: no es necesario avisar */ }
 </script>
 </body>
 </html>
