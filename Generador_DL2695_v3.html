@@ -554,6 +554,7 @@
               <div class="label">Avalúo fiscal proporcional</div>
               <div class="num" id="calcResultado">$0</div>
               <div class="formula" id="calcFormula">(m² a regularizar × avalúo total) ÷ m² totales</div>
+              <div class="row"><span>Régimen del Art. 1°</span><span id="calcRegimen">—</span></div>
               <div class="row"><span>Tope legal (UTM × factor)</span><span id="calcTope">$0</span></div>
               <div class="row"><span>Avalúo a comparar</span><span id="calcComparado">$0</span></div>
               <div class="row"><span>Resultado</span><span id="calcEstado">—</span></div>
@@ -574,6 +575,7 @@
             <input type="date" id="fechaSolicitud">
           </div>
         </div>
+        <p class="hint" id="avisoTopeAvaluo" style="margin:2px 0 0"></p>
       </fieldset>
 
       <fieldset>
@@ -2175,8 +2177,23 @@ function motivosTextos(){
 
   if(q('mo-avaluo').checked){
     const tope = val('mo-avaluo-tope') || (window.__ultimoTope || '$____________');
-    const factor = val('tipoBien')==='Urbano' ? '380' : '800';
-    out.avaluo = `Que, ${v('señala','señalan')} ${solicitanteMin()} que la propiedad se encuentra amparada por el Rol de Avalúo Fiscal Nº ${blank(val('rolAvaluo'))}, comuna de ${blank(val('comuna'))}, con un Avalúo Fiscal total de ${money(val('avaluoTotal'))||'$____________'}, excediendo el máximo permitido por el D.L. 2695/79 de ${factor} Unidades Tributarias Mensuales para inmuebles ${val('tipoBien').toLowerCase()||'____'}es, cuyo monto a la fecha de ingreso no puede exceder de ${tope}. De acuerdo a lo indicado, ${solicitanteMin()} no ${v('cumpliría','cumplirían')} el requisito establecido en el Artículo 1° del D.L. 2695/79, que establece que "Los poseedores materiales de bienes raíces rurales o urbanos, cuyo avalúo fiscal para el pago del impuesto territorial sea inferior a ochocientas o a trescientas ochenta unidades tributarias, respectivamente, que carezcan de título inscrito, podrán solicitar de la Dirección de Tierras y Bienes Nacionales que se les reconozca la calidad de poseedores regulares de dichos bienes (...)". Al no tratarse de una pequeña propiedad raíz en los términos del citado Artículo 1°, el inmueble queda fuera del ámbito de aplicación de este procedimiento de excepción, ${rechazo11}.`;
+    const reg = regimenActual();
+    const epoca = val('fechaSolicitud')
+      ? ` (${fechaProsa(val('fechaSolicitud'))})`
+      : '';
+
+    /* El tope del Artículo 1° cambió con la Ley N° 21.737 (D.O. 21-04-2025):
+       antes 800 UTM rural y 380 UTM urbano; desde entonces 1.000 UTM para
+       ambos. Se cita la versión que regía a la fecha de ingreso de la solicitud. */
+    const limite = reg.nuevo
+      ? `el máximo de ${reg.factorTexto} Unidades Tributarias Mensuales que rige para los inmuebles urbanos y rurales`
+      : `el máximo de ${reg.factorTexto} Unidades Tributarias Mensuales previsto para los inmuebles ${reg.esUrbano ? 'urbanos' : 'rurales'}`;
+
+    const cita = reg.nuevo
+      ? `De acuerdo a lo indicado, ${solicitanteMin()} no ${v('cumpliría','cumplirían')} el requisito establecido en ${reg.norma}, norma que homogeneizó en ${reg.factorPalabras} unidades tributarias mensuales el avalúo fiscal máximo que habilita para solicitar el reconocimiento de la calidad de ${poseedorCalidad()}, sin distinguir entre bienes raíces urbanos y rurales.`
+      : `De acuerdo a lo indicado, ${solicitanteMin()} no ${v('cumpliría','cumplirían')} el requisito establecido en ${reg.norma}, que disponía que "Los poseedores materiales de bienes raíces rurales o urbanos, cuyo avalúo fiscal para el pago del impuesto territorial sea inferior a ochocientas o a trescientas ochenta unidades tributarias, respectivamente, que carezcan de título inscrito, podrán solicitar de la Dirección de Tierras y Bienes Nacionales que se les reconozca la calidad de poseedores regulares de dichos bienes (...)".`;
+
+    out.avaluo = `Que, ${v('señala','señalan')} ${solicitanteMin()} que la propiedad se encuentra amparada por el Rol de Avalúo Fiscal Nº ${blank(val('rolAvaluo'))}, comuna de ${blank(val('comuna'))}, con un Avalúo Fiscal total de ${money(val('avaluoTotal'))||'$____________'}, excediendo ${limite}, cuyo equivalente a la fecha de ingreso de la solicitud asciende a ${tope}. ${cita} Al no tratarse de una pequeña propiedad raíz en los términos del citado Artículo 1°, y considerando que el cumplimiento de este requisito debe apreciarse a la época de presentación de la solicitud${epoca}, el inmueble queda fuera del ámbito de aplicación de este procedimiento de excepción, ${rechazo11}.`;
   }
 
   if(q('mo-loteo').checked){
@@ -2248,7 +2265,8 @@ function motivosTextos(){
   if(q('mo-excedePequena').checked){
     const pretendida = blank(val('mo-excede-pretendida'),'la superficie pretendida');
     const conAvaluo = blank(val('mo-excede-conAvaluo'),'la superficie amparada por el avalúo');
-    out.excedePequena = `La solicitud no logra acreditar que se trate de una "pequeña propiedad raíz" en los términos exigidos por el Artículo 1° del Decreto Ley N° 2.695 de 1979, norma que limita este procedimiento a los inmuebles cuyo avalúo fiscal no exceda los máximos legales. En el caso concreto, al pretenderse sanear una extensión de ${pretendida} contando únicamente con avalúo respecto de ${conAvaluo}, ${solicitanteMin()} ${v('omite','omiten')} acreditar el valor fiscal de la totalidad de la superficie efectivamente poseída, no siendo posible verificar si el avalúo del exceso mantiene el inmueble dentro del límite legal. Respecto de esa superficie excedentaria tampoco existe respaldo documental que otorgue "fecha cierta" ni veracidad a los actos de señor y dueño alegados, con lo cual se afecta la acreditación de la posesión material continua y exclusiva exigida por el Artículo 2° N° 1 del citado Decreto Ley. Conforme al Punto 4.2.2 ${circular}, la falta de consistencia entre los hechos declarados y los antecedentes documentales impide formar convicción administrativa sobre la real extensión de la ocupación, ${rechazo11}.`;
+    const regP = regimenActual();
+    out.excedePequena = `La solicitud no logra acreditar que se trate de una "pequeña propiedad raíz" en los términos exigidos por el Artículo 1° del Decreto Ley N° 2.695 de 1979, norma que limita este procedimiento a los inmuebles cuyo avalúo fiscal no exceda de ${regP.factorTexto} Unidades Tributarias Mensuales${regP.nuevo ? ', sea el inmueble urbano o rural, conforme al texto vigente tras la Ley N° 21.737' : `, tratándose de un inmueble ${regP.esUrbano ? 'urbano' : 'rural'}`}, límite que debe apreciarse a la fecha de ingreso de la solicitud. En el caso concreto, al pretenderse sanear una extensión de ${pretendida} contando únicamente con avalúo respecto de ${conAvaluo}, ${solicitanteMin()} ${v('omite','omiten')} acreditar el valor fiscal de la totalidad de la superficie efectivamente poseída, no siendo posible verificar si el avalúo del exceso mantiene el inmueble dentro del límite legal. Respecto de esa superficie excedentaria tampoco existe respaldo documental que otorgue "fecha cierta" ni veracidad a los actos de señor y dueño alegados, con lo cual se afecta la acreditación de la posesión material continua y exclusiva exigida por el Artículo 2° N° 1 del citado Decreto Ley. Conforme al Punto 4.2.2 ${circular}, la falta de consistencia entre los hechos declarados y los antecedentes documentales impide formar convicción administrativa sobre la real extensión de la ocupación, ${rechazo11}.`;
   }
 
   if(q('mo-comunidadSinCuotas').checked){
@@ -2664,9 +2682,35 @@ function textoDocumento(tab){
   return bloquesFinales(tab, partes.bloques).map(b=>b.texto).join('\n\n');
 }
 
+/* Deja a la vista qué tope de avalúo se está aplicando, porque depende de la
+   fecha en que se ingresó la solicitud y no de la fecha del documento. */
+function actualizarAvisoTope(){
+  const el = q('avisoTopeAvaluo');
+  if(!el) return;
+  const r = regimenActual();
+  if(r.sinFecha){
+    el.innerHTML = '⚠ Sin la <b>fecha de ingreso de la solicitud</b> se asume el tope vigente de <b>1.000 UTM</b>. Complétala para fijar el que corresponde.';
+    el.style.color = '#8a6d1f';
+  } else if(r.nuevo){
+    el.innerHTML = `Tope de avalúo aplicable: <b>1.000 UTM</b> (urbano o rural) — solicitud ingresada desde el 21-04-2025, Ley N° 21.737.`;
+    el.style.color = '';
+  } else {
+    el.innerHTML = `Tope de avalúo aplicable: <b>${r.factorTexto} UTM</b> (${r.esUrbano ? 'urbano' : 'rural'}) — solicitud ingresada antes del 21-04-2025, texto anterior a la Ley N° 21.737.`;
+    el.style.color = '';
+  }
+}
+
 function generar(){
   guardarTodo();   // cada regeneración deja el trabajo guardado en el navegador
   sincronizarEspejosSolicitante();
+  /* El tope del Art. 1° depende de la fecha de la solicitud y del tipo de bien:
+     se recalcula en cada render para que la calculadora y el informe coincidan. */
+  calcular();
+  actualizarAvisoTope();
+  /* La equivalencia m² ↔ hectáreas se refresca aquí también, y no sólo cuando se
+     escribe en el campo, para que quede correcta aunque el valor llegue por otra
+     vía (al restaurar un borrador o al aplicar los datos de la calculadora). */
+  actualizarEquivalenciaSup();
   const tab = activeMainTab();
   if(tab === 'oficios') return;
 
@@ -3134,13 +3178,82 @@ function actualizarEquivalencias(){
   });
 }
 
+/* ============================================================
+   TOPE DE AVALÚO FISCAL — Artículo 1° del D.L. Nº 2.695/79
+
+   El límite NO es fijo: depende de la FECHA DE INGRESO DE LA SOLICITUD, porque
+   la Ley N° 21.737 (Diario Oficial de 21 de abril de 2025) homogeneizó ambos
+   topes en un solo valor.
+
+     · Solicitudes ingresadas ANTES del 21-04-2025
+         800 UTM si el inmueble es rural · 380 UTM si es urbano
+     · Solicitudes ingresadas DESDE el 21-04-2025
+         1.000 UTM, sin distinguir entre urbano y rural
+
+   Por eso el tope se calcula siempre a partir del campo "Fecha de ingreso de la
+   solicitud", y no de la fecha del documento.
+   ============================================================ */
+const FECHA_LEY_21737 = '2025-04-21';
+const TOPE_NUEVO = 1000;
+const TOPE_RURAL_ANTIGUO = 800;
+const TOPE_URBANO_ANTIGUO = 380;
+
+/* Devuelve el régimen aplicable a una solicitud.
+   Las fechas vienen en formato ISO (aaaa-mm-dd), que se compara como texto. */
+function regimenAvaluo(fechaSolicitud, tipoBien){
+  const fecha = (fechaSolicitud || '').trim();
+  const esUrbano = /^urban/i.test(String(tipoBien || '').trim());
+  const sinFecha = !fecha;
+  /* Sin fecha se asume el régimen vigente, pero se avisa en la calculadora. */
+  const nuevo = sinFecha || fecha >= FECHA_LEY_21737;
+
+  if(nuevo){
+    return {
+      nuevo: true, sinFecha: sinFecha, esUrbano: esUrbano,
+      factor: TOPE_NUEVO,
+      factorTexto: '1.000',
+      factorPalabras: 'mil',
+      etiqueta: '1.000 UTM (urbano o rural)',
+      norma: 'el Artículo 1° del D.L. Nº 2.695/79, en su texto vigente conforme a la Ley N° 21.737, publicada en el Diario Oficial el 21 de abril de 2025'
+    };
+  }
+  return {
+    nuevo: false, sinFecha: false, esUrbano: esUrbano,
+    factor: esUrbano ? TOPE_URBANO_ANTIGUO : TOPE_RURAL_ANTIGUO,
+    factorTexto: esUrbano ? '380' : '800',
+    factorPalabras: esUrbano ? 'trescientas ochenta' : 'ochocientas',
+    etiqueta: (esUrbano ? '380' : '800') + ' UTM (' + (esUrbano ? 'urbano' : 'rural') + ')',
+    norma: 'el Artículo 1° del D.L. Nº 2.695/79, en el texto vigente a la fecha de ingreso de la solicitud (anterior a la Ley N° 21.737)'
+  };
+}
+
+/* Régimen aplicable al expediente que se está redactando. */
+function regimenActual(){
+  return regimenAvaluo(val('fechaSolicitud'), val('tipoBien'));
+}
+
+/* Los desplegables de tipo de inmueble muestran el tope que les corresponde
+   según la fecha de la solicitud, para no dejar cifras fijas en pantalla. */
+function actualizarEtiquetasTope(){
+  const sel = q('calcTipo');
+  if(!sel) return;
+  const rRural = regimenAvaluo(val('fechaSolicitud'), 'Rural');
+  const rUrbano = regimenAvaluo(val('fechaSolicitud'), 'Urbano');
+  const optR = sel.querySelector('option[value="rural"]');
+  const optU = sel.querySelector('option[value="urbano"]');
+  if(optR) optR.textContent = `Rural (${rRural.factorTexto} UTM)`;
+  if(optU) optU.textContent = `Urbano (${rUrbano.factorTexto} UTM)`;
+}
+
 function calcular(){
   const avaluoTotal = parseNum(val('calcAvaluoTotal'))||0;
   const m2Totales = state.calcSup.totales || 0;
   const m2Reg = state.calcSup.reg || 0;
   const utm = parseNum(val('calcUTM'))||0;
   const tipo = val('calcTipo');
-  const factor = tipo==='urbano' ? 380 : 800;
+  const regimen = regimenAvaluo(val('fechaSolicitud'), tipo === 'urbano' ? 'Urbano' : 'Rural');
+  const factor = regimen.factor;
+  actualizarEtiquetasTope();
 
   let proporcional = 0;
   if(m2Totales>0){
@@ -3159,7 +3272,24 @@ function calcular(){
 
   const tope = utm * factor;
   window.__ultimoTope = money(tope);
-  q('calcTope').textContent = `${money(tope)||'$0'}  (${factor} UTM)`;
+  window.__ultimoRegimen = regimen;
+  q('calcTope').textContent = `${money(tope)||'$0'}  (${regimen.factorTexto} UTM)`;
+
+  /* Se deja a la vista de qué régimen sale el tope, porque cambia según la
+     fecha en que se ingresó la solicitud. */
+  const elRegimen = q('calcRegimen');
+  if(elRegimen){
+    if(regimen.sinFecha){
+      elRegimen.innerHTML = '<span class="badge warn">Falta la fecha de la solicitud</span> se asume 1.000 UTM';
+      elRegimen.title = 'Completa "Fecha de ingreso de la solicitud" para fijar el tope que corresponde.';
+    } else if(regimen.nuevo){
+      elRegimen.textContent = '1.000 UTM · Ley N° 21.737';
+      elRegimen.title = 'Solicitud ingresada desde el 21-04-2025: el tope es 1.000 UTM, sea urbano o rural.';
+    } else {
+      elRegimen.textContent = `${regimen.factorTexto} UTM · texto anterior`;
+      elRegimen.title = 'Solicitud ingresada antes del 21-04-2025: 800 UTM si es rural, 380 UTM si es urbano.';
+    }
+  }
 
   const comparar = (m2Reg && m2Totales && m2Reg < m2Totales) ? proporcional : avaluoTotal;
   q('calcComparado').textContent = money(comparar) || '$0';
