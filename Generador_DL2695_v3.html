@@ -1693,6 +1693,118 @@ function unirConY(lista, sep, conector){
 }
 
 /* ============================================================
+   REGIONES Y COMUNAS DE CHILE
+   División político-administrativa vigente: 16 regiones y 346 comunas.
+   Se usa en la notificación a presuntos dueños de la Circular N°3, porque su
+   domicilio puede estar en cualquier parte del país.
+
+   El nombre de cada región se guarda tal como debe aparecer tras la palabra
+   "Región" en el documento (por ejemplo "del Maule" -> "Región del Maule").
+   Las comunas del Maule se toman de COMUNAS_MAULE, la misma lista que alimenta
+   el formulario principal, para no mantener los datos en dos lugares.
+   ============================================================ */
+function comunasMaulePlanas(){
+  return Object.keys(COMUNAS_MAULE)
+    .reduce((acc, prov) => acc.concat(COMUNAS_MAULE[prov]), [])
+    .sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+const REGIONES_CHILE = [
+  {nombre:'de Arica y Parinacota', comunas:[
+    'Arica','Camarones','General Lagos','Putre']},
+
+  {nombre:'de Tarapacá', comunas:[
+    'Alto Hospicio','Camiña','Colchane','Huara','Iquique','Pica','Pozo Almonte']},
+
+  {nombre:'de Antofagasta', comunas:[
+    'Antofagasta','Calama','María Elena','Mejillones','Ollagüe','San Pedro de Atacama',
+    'Sierra Gorda','Taltal','Tocopilla']},
+
+  {nombre:'de Atacama', comunas:[
+    'Alto del Carmen','Caldera','Chañaral','Copiapó','Diego de Almagro','Freirina',
+    'Huasco','Tierra Amarilla','Vallenar']},
+
+  {nombre:'de Coquimbo', comunas:[
+    'Andacollo','Canela','Combarbalá','Coquimbo','Illapel','La Higuera','La Serena',
+    'Los Vilos','Monte Patria','Ovalle','Paihuano','Punitaqui','Río Hurtado','Salamanca',
+    'Vicuña']},
+
+  {nombre:'de Valparaíso', comunas:[
+    'Algarrobo','Cabildo','Calle Larga','Cartagena','Casablanca','Catemu','Concón',
+    'El Quisco','El Tabo','Hijuelas','Isla de Pascua','Juan Fernández','La Calera',
+    'La Cruz','La Ligua','Limache','Llaillay','Los Andes','Nogales','Olmué','Panquehue',
+    'Papudo','Petorca','Puchuncaví','Putaendo','Quillota','Quilpué','Quintero',
+    'Rinconada','San Antonio','San Esteban','San Felipe','Santa María','Santo Domingo',
+    'Valparaíso','Villa Alemana','Viña del Mar','Zapallar']},
+
+  {nombre:'Metropolitana de Santiago', comunas:[
+    'Alhué','Buin','Calera de Tango','Cerrillos','Cerro Navia','Colina','Conchalí',
+    'Curacaví','El Bosque','El Monte','Estación Central','Huechuraba','Independencia',
+    'Isla de Maipo','La Cisterna','La Florida','La Granja','La Pintana','La Reina',
+    'Lampa','Las Condes','Lo Barnechea','Lo Espejo','Lo Prado','Macul','Maipú',
+    'María Pinto','Melipilla','Ñuñoa','Padre Hurtado','Paine','Pedro Aguirre Cerda',
+    'Peñaflor','Peñalolén','Pirque','Providencia','Pudahuel','Puente Alto','Quilicura',
+    'Quinta Normal','Recoleta','Renca','San Bernardo','San Joaquín','San José de Maipo',
+    'San Miguel','San Pedro','San Ramón','Santiago','Talagante','Tiltil','Vitacura']},
+
+  {nombre:'del Libertador General Bernardo O\u2019Higgins', comunas:[
+    'Chépica','Chimbarongo','Codegua','Coinco','Coltauco','Doñihue','Graneros',
+    'La Estrella','Las Cabras','Litueche','Lolol','Machalí','Malloa','Marchihue',
+    'Mostazal','Nancagua','Navidad','Olivar','Palmilla','Paredones','Peralillo','Peumo',
+    'Pichidegua','Pichilemu','Placilla','Pumanque','Quinta de Tilcoco','Rancagua',
+    'Rengo','Requínoa','San Fernando','San Vicente','Santa Cruz']},
+
+  /* Las 30 comunas del Maule salen de COMUNAS_MAULE (fuente única). */
+  {nombre:'del Maule', comunas: comunasMaulePlanas()},
+
+  {nombre:'de Ñuble', comunas:[
+    'Bulnes','Chillán','Chillán Viejo','Cobquecura','Coelemu','Coihueco','El Carmen',
+    'Ninhue','Ñiquén','Pemuco','Pinto','Portezuelo','Quillón','Quirihue','Ránquil',
+    'San Carlos','San Fabián','San Ignacio','San Nicolás','Treguaco','Yungay']},
+
+  {nombre:'del Biobío', comunas:[
+    'Alto Biobío','Antuco','Arauco','Cabrero','Cañete','Chiguayante','Concepción',
+    'Contulmo','Coronel','Curanilahue','Florida','Hualpén','Hualqui','Laja','Lebu',
+    'Los Álamos','Los Ángeles','Lota','Mulchén','Nacimiento','Negrete','Penco','Quilaco',
+    'Quilleco','San Pedro de la Paz','San Rosendo','Santa Bárbara','Santa Juana',
+    'Talcahuano','Tirúa','Tomé','Tucapel','Yumbel']},
+
+  {nombre:'de La Araucanía', comunas:[
+    'Angol','Carahue','Cholchol','Collipulli','Cunco','Curacautín','Curarrehue',
+    'Ercilla','Freire','Galvarino','Gorbea','Lautaro','Loncoche','Lonquimay',
+    'Los Sauces','Lumaco','Melipeuco','Nueva Imperial','Padre Las Casas','Perquenco',
+    'Pitrufquén','Pucón','Purén','Renaico','Saavedra','Temuco','Teodoro Schmidt',
+    'Toltén','Traiguén','Victoria','Vilcún','Villarrica']},
+
+  {nombre:'de Los Ríos', comunas:[
+    'Corral','Futrono','La Unión','Lago Ranco','Lanco','Los Lagos','Máfil','Mariquina',
+    'Paillaco','Panguipulli','Río Bueno','Valdivia']},
+
+  {nombre:'de Los Lagos', comunas:[
+    'Ancud','Calbuco','Castro','Chaitén','Chonchi','Cochamó','Curaco de Vélez',
+    'Dalcahue','Fresia','Frutillar','Futaleufú','Hualaihué','Llanquihue','Los Muermos',
+    'Maullín','Osorno','Palena','Puerto Montt','Puerto Octay','Puerto Varas','Puqueldón',
+    'Purranque','Puyehue','Queilén','Quellón','Quemchi','Quinchao','Río Negro',
+    'San Juan de la Costa','San Pablo']},
+
+  {nombre:'de Aysén del General Carlos Ibáñez del Campo', comunas:[
+    'Aysén','Chile Chico','Cisnes','Cochrane','Coyhaique','Guaitecas','Lago Verde',
+    'O\u2019Higgins','Río Ibáñez','Tortel']},
+
+  {nombre:'de Magallanes y de la Antártica Chilena', comunas:[
+    'Antártica','Cabo de Hornos','Laguna Blanca','Natales','Porvenir','Primavera',
+    'Punta Arenas','Río Verde','San Gregorio','Timaukel','Torres del Paine']}
+];
+
+/* Región que se usa por defecto: la de esta Secretaría Regional Ministerial. */
+const REGION_SEDE = 'del Maule';
+
+function comunasDeRegion(nombreRegion){
+  const r = REGIONES_CHILE.find(x => x.nombre === nombreRegion);
+  return r ? r.comunas : [];
+}
+
+/* ============================================================
    PRESUNTOS DUEÑOS (notificación Circular N°3/2022)
    ============================================================ */
 const FORMAS_CALIDAD = {
@@ -1701,7 +1813,18 @@ const FORMAS_CALIDAD = {
 };
 
 function presuntoVacio(){
-  return {nombre:'', genero:'M', ci:'', domicilio:'', comuna:'', region:'', otraRegion:false};
+  return {nombre:'', genero:'M', ci:'', domicilio:'', comuna:'', region: REGION_SEDE};
+}
+
+/* Región del presunto. Los borradores antiguos no la guardaban: se deduce de la
+   comuna (si es del Maule) y, en último caso, se usa la región de la sede. */
+function regionPresunto(p){
+  if(p.region) return p.region;
+  if(p.comuna && !comunaEsDelMaule(p.comuna)){
+    const encontrada = REGIONES_CHILE.find(r => r.comunas.indexOf(p.comuna) !== -1);
+    if(encontrada) return encontrada.nombre;
+  }
+  return REGION_SEDE;
 }
 
 /* ¿La comuna es de la Región del Maule? Si lo es, en el texto basta con
@@ -1714,31 +1837,50 @@ function comunaEsDelMaule(comuna){
     COMUNAS_MAULE[prov].some(x => x.toLowerCase() === c));
 }
 
-/* Desplegable de comuna: las comunas del Maule agrupadas por provincia, más una
-   opción para escribir una comuna de otra región. */
-function opcionesComunaPresunto(seleccion, esOtra){
+/* Desplegable de regiones: las 16 del país, de norte a sur. */
+function opcionesRegionPresunto(seleccion){
+  return REGIONES_CHILE.map(r=>{
+    const sel = (r.nombre === seleccion) ? ' selected' : '';
+    return `<option value="${escapeAttr(r.nombre)}"${sel}>Región ${escapeHtml(r.nombre)}</option>`;
+  }).join('');
+}
+
+/* Desplegable de comunas de la región elegida. En el Maule se agrupan por
+   provincia, igual que en el formulario principal. */
+function opcionesComunaPresunto(region, seleccion){
   let html = '<option value="">— Comuna —</option>';
-  Object.keys(COMUNAS_MAULE).forEach(prov=>{
-    html += `<optgroup label="Provincia de ${prov}">`;
-    COMUNAS_MAULE[prov].forEach(c=>{
-      const sel = (!esOtra && c === seleccion) ? ' selected' : '';
-      html += `<option value="${c}"${sel}>${c}</option>`;
+  const marca = (c)=> (c === seleccion) ? ' selected' : '';
+
+  if(region === REGION_SEDE){
+    Object.keys(COMUNAS_MAULE).forEach(prov=>{
+      html += `<optgroup label="Provincia de ${prov}">`;
+      COMUNAS_MAULE[prov].forEach(c=>{ html += `<option value="${c}"${marca(c)}>${c}</option>`; });
+      html += '</optgroup>';
     });
-    html += '</optgroup>';
-  });
-  html += `<option value="__otra"${esOtra?' selected':''}>Otra región / escribir…</option>`;
+  } else {
+    comunasDeRegion(region).forEach(c=>{
+      html += `<option value="${escapeAttr(c)}"${marca(c)}>${escapeHtml(c)}</option>`;
+    });
+  }
+
+  /* Si un borrador antiguo traía una comuna escrita a mano que no está en la
+     lista, se agrega para no perderla. */
+  if(seleccion && comunasDeRegion(region).indexOf(seleccion) === -1){
+    html += `<option value="${escapeAttr(seleccion)}" selected>${escapeHtml(seleccion)}</option>`;
+  }
   return html;
 }
 
 /* Cómo se redacta la ubicación del presunto dueño en el texto de la Circular. */
 function ubicacionPresunto(p){
   const comuna = (p.comuna||'').trim();
-  const region = (p.region||'').trim();
   if(!comuna) return '';
-  /* En el Maule basta la comuna ("de Talca"); fuera del Maule se agrega la
-     región ("de Puente Alto, Región Metropolitana"). */
-  if(comunaEsDelMaule(comuna) || !region) return `, de ${comuna}`;
-  return `, de ${comuna}, Región ${fixDel(region)}`;
+  const region = regionPresunto(p);
+  /* En la región de la sede basta con la comuna ("de Talca", "de Curicó"); fuera
+     de ella se agrega la región ("de Puente Alto, Región Metropolitana de
+     Santiago"). */
+  if(region === REGION_SEDE) return `, de ${comuna}`;
+  return `, de ${comuna}, Región ${region}`;
 }
 
 function renderPresuntos(){
@@ -1758,7 +1900,7 @@ function renderPresuntos(){
   </div>`;
 
   state.presuntos.forEach((p,i)=>{
-    const esOtra = !!p.otraRegion;
+    const region = regionPresunto(p);
     html += `<div class="presunto-card">
       <div class="sol-head">
         <span class="n">${state.presuntos.length>1 ? 'Presunto '+(i+1) : 'Presunto'}</span>
@@ -1774,16 +1916,15 @@ function renderPresuntos(){
         </div>
         <div class="field"><label>C.I. N°</label><input type="text" value="${escapeAttr(p.ci)}" placeholder="" oninput="this.value=formatRutEscribiendo(this.value); updatePresunto(${i},'ci',this.value)" onblur="this.value=formatRutValue(this.value); updatePresunto(${i},'ci',this.value)"></div>
       </div>
+      <div class="field"><label>Domicilio (calle y número)</label><input type="text" value="${escapeAttr(p.domicilio)}" placeholder="" oninput="updatePresunto(${i},'domicilio',this.value)"></div>
       <div class="persona-row">
-        <div class="field"><label>Domicilio (calle y número)</label><input type="text" value="${escapeAttr(p.domicilio)}" placeholder="" oninput="updatePresunto(${i},'domicilio',this.value)"></div>
+        <div class="field"><label>Región</label>
+          <select onchange="onRegionPresuntoChange(${i}, this.value)">${opcionesRegionPresunto(region)}</select>
+        </div>
         <div class="field"><label>Comuna</label>
-          <select onchange="onComunaPresuntoChange(${i}, this.value)">${opcionesComunaPresunto(p.comuna, esOtra)}</select>
+          <select onchange="onComunaPresuntoChange(${i}, this.value)">${opcionesComunaPresunto(region, p.comuna)}</select>
         </div>
       </div>
-      ${esOtra ? `<div class="persona-row">
-        <div class="field"><label>Comuna (escríbela)</label><input type="text" value="${escapeAttr(p.comuna)}" placeholder="" oninput="updatePresunto(${i},'comuna',this.value)"></div>
-        <div class="field"><label>Región</label><input type="text" value="${escapeAttr(p.region)}" placeholder="Metropolitana, del Biobío…" oninput="updatePresunto(${i},'region',this.value)"></div>
-      </div>` : ''}
       <p class="hint" id="presuntoPrev-${i}" style="margin:2px 0 0">Quedará: <b>${escapeHtml(vistaPreviaPresunto(p))}</b></p>
     </div>`;
   });
@@ -1802,19 +1943,23 @@ function vistaPreviaPresunto(p){
 }
 
 /* Al elegir "Otra región" se limpia la comuna para que se pueda escribir. */
+/* Al cambiar de región se vacía la comuna y se vuelve a dibujar su desplegable
+   con las comunas que corresponden. */
+function onRegionPresuntoChange(i, valor){
+  const p = state.presuntos[i];
+  if(!p) return;
+  p.region = valor;
+  p.comuna = '';
+  renderPresuntos();
+  generar();
+}
+
 function onComunaPresuntoChange(i, valor){
   const p = state.presuntos[i];
   if(!p) return;
-  if(valor === '__otra'){
-    p.otraRegion = true;
-    /* si venía una comuna del Maule se vacía, para escribir la nueva */
-    if(comunaEsDelMaule(p.comuna)) p.comuna = '';
-  } else {
-    p.otraRegion = false;
-    p.comuna = valor;
-    p.region = '';
-  }
-  renderPresuntos();
+  p.comuna = valor;
+  const prev = q('presuntoPrev-'+i);
+  if(prev) prev.innerHTML = 'Quedará: <b>' + escapeHtml(vistaPreviaPresunto(p)) + '</b>';
   generar();
 }
 
