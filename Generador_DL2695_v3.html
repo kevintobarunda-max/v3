@@ -318,6 +318,10 @@
   .persona-row .field{flex:1;min-width:140px;margin-bottom:0;}
   .persona-row .btn-sm{height:34px;}
 
+  /* ---- ficha del causante (Circular N°3) ---- */
+  .causante-card{border:1px solid #ddd6c4;border-left:3px solid #8a6d1f;border-radius:10px;padding:9px 11px 8px;margin:0 0 10px;background:#fffdf6;}
+  .causante-card .n{color:#8a6d1f;}
+
   /* ---- ficha de cada presunto dueño/a (Circular N°3) ---- */
   .presunto-card{border:1px solid #e4e7ec;border-left:3px solid #b0894a;border-radius:10px;padding:9px 11px 8px;margin-bottom:9px;background:#fff;}
   .presunto-card .hint b{color:var(--tinta);font-weight:600;}
@@ -1256,6 +1260,9 @@ const state = {
      seguirlo. */
   sentidoManual: { resolucion:false, notificacion:false },
   presuntos: [],
+  /* Titular fallecido cuya sucesión se notifica. Sólo se usa cuando la calidad
+     de los notificados es "herederos de un causante". */
+  causante: { nombre:'', genero:'M', ci:'' },
   oficiosInit: false,
   /* --- orden en que se numeran los motivos de rechazo (letras b, c, d...) --- */
   motivosOrden: [],
@@ -1812,6 +1819,13 @@ const FORMAS_CALIDAD = {
   heredero: {mSing:'heredero', fSing:'heredera', mPlur:'herederos', fPlur:'herederas'}
 };
 
+/* Cómo se rotula cada ficha según a quién se está notificando. */
+function rotuloPresunto(i, total){
+  const tipo = state.presuntosTipo || 'dueño';
+  const base = (tipo === 'causante') ? 'Heredero/a' : 'Presunto';
+  return total > 1 ? base + ' ' + (i+1) : base;
+}
+
 function presuntoVacio(){
   return {nombre:'', genero:'M', ci:'', domicilio:'', comuna:'', region: REGION_SEDE};
 }
@@ -1892,19 +1906,46 @@ function renderPresuntos(){
   if(state.presuntos.length===0) state.presuntos.push(presuntoVacio());
   if(!state.presuntosTipo) state.presuntosTipo = 'dueño';
 
-  let html = `<div class="field" style="max-width:260px;">
-    <label>Calidad de los presuntos</label>
-    <select onchange="state.presuntosTipo=this.value; generar();">
-      <option value="dueño" ${state.presuntosTipo==='dueño'?'selected':''}>Dueño(s) / Dueña(s)</option>
-      <option value="heredero" ${state.presuntosTipo==='heredero'?'selected':''}>Heredero(s) / Heredera(s)</option>
+  const tipo = state.presuntosTipo;
+  const porCausante = tipo === 'causante';
+
+  let html = `<div class="field" style="max-width:320px;">
+    <label>Calidad de quienes se notifica</label>
+    <select onchange="setPresuntosTipo(this.value)">
+      <option value="dueño" ${tipo==='dueño'?'selected':''}>Presunto(s) dueño(s) / dueña(s)</option>
+      <option value="heredero" ${tipo==='heredero'?'selected':''}>Presunto(s) heredero(s) / heredera(s)</option>
+      <option value="causante" ${porCausante?'selected':''}>Herederos de un causante (titular fallecido)</option>
     </select>
   </div>`;
+
+  /* Ficha del causante: se nombra primero en el texto y después su representación. */
+  if(porCausante){
+    const c = causanteActual();
+    html += `<div class="causante-card">
+      <div class="sol-head"><span class="n">Causante — titular fallecido</span></div>
+      <div class="persona-row">
+        <div class="field"><label>Nombre completo</label>
+          <input type="text" value="${escapeAttr(c.nombre)}" placeholder="" oninput="updateCausante('nombre',this.value)"></div>
+        <div class="field" style="max-width:130px;"><label>Género</label>
+          <select onchange="updateCausante('genero',this.value)">
+            <option value="M" ${c.genero!=='F'?'selected':''}>Masculino</option>
+            <option value="F" ${c.genero==='F'?'selected':''}>Femenino</option>
+          </select>
+        </div>
+        <div class="field"><label>C.I. N° <span class="hint">(opcional)</span></label>
+          <input type="text" value="${escapeAttr(c.ci)}" placeholder=""
+                 oninput="this.value=formatRutEscribiendo(this.value); updateCausante('ci',this.value)"
+                 onblur="this.value=formatRutValue(this.value); updateCausante('ci',this.value)"></div>
+      </div>
+      <p class="hint" style="margin:2px 0 0">Se notifica a su representación, que se individualiza abajo con el mismo formato.</p>
+    </div>`;
+  }
 
   state.presuntos.forEach((p,i)=>{
     const region = regionPresunto(p);
     html += `<div class="presunto-card">
       <div class="sol-head">
-        <span class="n">${state.presuntos.length>1 ? 'Presunto '+(i+1) : 'Presunto'}</span>
+        <span class="n">${rotuloPresunto(i, state.presuntos.length)}</span>
         ${state.presuntos.length>1 ? `<button type="button" class="btn btn-outline btn-sm" onclick="quitarPresunto(${i})" title="Quitar">✕</button>` : ''}
       </div>
       <div class="persona-row">
@@ -1929,7 +1970,7 @@ function renderPresuntos(){
       <p class="hint" id="presuntoPrev-${i}" style="margin:2px 0 0">Quedará: <b>${escapeHtml(vistaPreviaPresunto(p))}</b></p>
     </div>`;
   });
-  html += `<div class="btn-row" style="margin-top:0"><button type="button" class="btn btn-outline btn-sm" onclick="agregarPresunto()">+ Agregar otro presunto dueño/a</button></div>`;
+  html += `<div class="btn-row" style="margin-top:0"><button type="button" class="btn btn-outline btn-sm" onclick="agregarPresunto()">+ Agregar ${porCausante ? 'otro heredero/a' : 'otro presunto dueño/a'}</button></div>`;
   wrap.innerHTML = html;
 }
 
@@ -1961,6 +2002,23 @@ function onComunaPresuntoChange(i, valor){
   p.comuna = valor;
   const prev = q('presuntoPrev-'+i);
   if(prev) prev.innerHTML = 'Quedará: <b>' + escapeHtml(vistaPreviaPresunto(p)) + '</b>';
+  generar();
+}
+
+/* Causante siempre disponible, aunque el borrador venga de una versión anterior. */
+function causanteActual(){
+  if(!state.causante) state.causante = {nombre:'', genero:'M', ci:''};
+  return state.causante;
+}
+
+function setPresuntosTipo(valor){
+  state.presuntosTipo = valor;
+  renderPresuntos();   // aparece o desaparece la ficha del causante
+  generar();
+}
+
+function updateCausante(campo, valor){
+  causanteActual()[campo] = valor;
   generar();
 }
 
@@ -2043,30 +2101,51 @@ function bloquesObservaciones(){
   }
 
   if(q('obs-notif') && q('obs-notif').checked){
-    const personas = state.presuntos.length ? state.presuntos : [{nombre:'',genero:'M',ci:'',domicilio:''}];
+    const personas = state.presuntos.length ? state.presuntos : [presuntoVacio()];
     const tipo = state.presuntosTipo || 'dueño';
-    const formas = FORMAS_CALIDAD[tipo] || FORMAS_CALIDAD.dueño;
     const esPlural = personas.length > 1;
     const todasF = personas.every(p=>p.genero==='F');
 
-    const calidad = esPlural ? (todasF ? formas.fPlur : formas.mPlur) : (personas[0].genero==='F' ? formas.fSing : formas.mSing);
-    const articulo = esPlural ? (todasF ? 'a las presuntas' : 'a los presuntos') : (personas[0].genero==='F' ? 'a la presunta' : 'al presunto');
+    /* Cuando se notifica a la sucesión de un titular fallecido, el texto nombra
+       primero al causante y después a quienes lo representan, con el mismo
+       formato de nombre, C.I. y domicilio. En ese caso los herederos se
+       individualizan con "con domicilio en", como en los informes emitidos. */
+    const porCausante = tipo === 'causante';
 
     const listaPersonas = personas.map(p=>{
       const trato = p.genero==='F' ? 'doña' : 'don';
       const nom = upper(blank(p.nombre,'____________________'));
       const ci = blank(p.ci,'____________');
       const dom = blank(p.domicilio,'____________________');
-      const domiciliado = p.genero === 'F' ? 'domiciliada' : 'domiciliado';
+      const formaDomicilio = porCausante
+        ? 'con domicilio en'
+        : (p.genero === 'F' ? 'domiciliada en' : 'domiciliado en');
       /* La comuna se agrega como "de Talca"; si el domicilio está en otra
-         región se indica también la región. */
-      return `${trato} ${nom}, C.I. N° ${ci}, ${domiciliado} en ${dom}${ubicacionPresunto(p)}`;
+         región se indica "Comuna de X, Región Y". */
+      return `${trato} ${nom}, C.I. N° ${ci}, ${formaDomicilio} ${dom}${ubicacionPresunto(p)}`;
     });
-    const lista = listaPersonas.length<=1
-      ? listaPersonas[0]
-      : listaPersonas.slice(0,-1).join('; ') + '; y ' + listaPersonas[listaPersonas.length-1];
+    const lista = unirConY(listaPersonas, '; ');
 
-    add('notif', `En conformidad a instrucciones impartidas por Circular N°3 de fecha 21 de noviembre de 2022 de la Subsecretaría de Bienes Nacionales, según su documentación acompañada, y a fin de evitar la afectación de terceros que pudieran tener derechos sobre el inmueble a regularizar, se debe realizar notificación ${articulo} ${calidad}: ${lista}.`);
+    let aQuien;
+    if(porCausante){
+      const c = causanteActual();
+      const tratoC = c.genero === 'F' ? 'doña' : 'don';
+      const nomC = upper(blank(c.nombre,'____________________'));
+      const ciC = (c.ci||'').trim();
+      const causanteTxt = `${tratoC} ${nomC}${ciC ? `, C.I. N° ${ciC}` : ''}`;
+      /* de los herederos / de las herederas / del heredero / de la heredera */
+      const deLosHerederos = esPlural
+        ? (todasF ? 'de las herederas' : 'de los herederos')
+        : (personas[0].genero==='F' ? 'de la heredera' : 'del heredero');
+      aQuien = `${deLosHerederos} de ${causanteTxt}`;
+    } else {
+      const formas = FORMAS_CALIDAD[tipo] || FORMAS_CALIDAD.dueño;
+      const calidad = esPlural ? (todasF ? formas.fPlur : formas.mPlur) : (personas[0].genero==='F' ? formas.fSing : formas.mSing);
+      const articulo = esPlural ? (todasF ? 'a las presuntas' : 'a los presuntos') : (personas[0].genero==='F' ? 'a la presunta' : 'al presunto');
+      aQuien = `${articulo} ${calidad}`;
+    }
+
+    add('notif', `En conformidad a instrucciones impartidas por Circular N°3 de fecha 21 de noviembre de 2022 de la Subsecretaría de Bienes Nacionales, según su documentación acompañada, y a fin de evitar la afectación de terceros que pudieran tener derechos sobre el inmueble a regularizar, se debe realizar notificación ${aQuien}: ${lista}.`);
   }
 
   if(val('obsExtra')){
@@ -4311,6 +4390,7 @@ function guardarAhora(){
         supUnidadAnterior: state.supUnidadAnterior,
         presuntos: state.presuntos,
         presuntosTipo: state.presuntosTipo,
+        causante: state.causante,
         motivosOrden: state.motivosOrden,
         masivoFilas: state.masivoFilas,
         /* ediciones manuales por párrafo de cada documento */
@@ -4387,6 +4467,11 @@ function restaurarTodo(){
     if(est.supUnidadAnterior) state.supUnidadAnterior = est.supUnidadAnterior;
     if(Array.isArray(est.presuntos)) state.presuntos = est.presuntos;
     if(est.presuntosTipo) state.presuntosTipo = est.presuntosTipo;
+    if(est.causante) state.causante = {
+      nombre: est.causante.nombre || '',
+      genero: est.causante.genero === 'F' ? 'F' : 'M',
+      ci: est.causante.ci || ''
+    };
     if(Array.isArray(est.motivosOrden)) state.motivosOrden = est.motivosOrden;
     if(Array.isArray(est.masivoFilas)) state.masivoFilas = est.masivoFilas;
 
@@ -4540,6 +4625,7 @@ function borrarGuardado(){
   state.sentidoManual = { resolucion:false, notificacion:false };
   state.presuntos = [];
   state.presuntosTipo = 'dueño';
+  state.causante = {nombre:'', genero:'M', ci:''};
   state.motivosOrden = [];
   state.masivoFilas = [];
   state.calcSup = {totales:null, reg:null};
