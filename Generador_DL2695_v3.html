@@ -2580,7 +2580,32 @@ function renderModoSub(){
   </div>`;
   const commonRepertorio = `<div class="field"><label>N° Repertorio</label><input type="text" id="modoRepertorio" placeholder=""></div>`;
   const commonContraparte = `<div class="field"><label>Adquiere de (nombre)</label><input type="text" id="modoContraparte" placeholder=""></div>`;
-  const commonPorc = `<div class="field"><label>% de derechos adquiridos</label><input type="text" id="modoPorcentaje" placeholder=""></div>`;
+  /* Qué se adquiere. Los informes emitidos usan varias formas: un porcentaje de
+     derechos, un retazo determinado con su superficie, ambos a la vez, o la
+     totalidad de los derechos. Los dos campos están siempre en el DOM y sólo se
+     muestran los que corresponden, así el guardado y la restauración funcionan
+     sin depender del orden en que se dibujan. */
+  const commonPorc = `<div class="field">
+      <label>Qué adquiere</label>
+      <select id="modoObjeto" onchange="aplicarObjetoUI(); generar();">
+        <option value="porcentaje">Un porcentaje de derechos</option>
+        <option value="porcentajeRetazo">Un porcentaje de derechos y, específicamente, un retazo</option>
+        <option value="retazo">Un retazo determinado, con su superficie</option>
+        <option value="retazoDerechos">Acciones y derechos sobre un retazo</option>
+        <option value="totalidadRetazo">La totalidad de los derechos sobre un retazo</option>
+        <option value="totalidad">La totalidad de los derechos de dominio</option>
+      </select>
+    </div>
+    <div class="grid2">
+      <div class="field" id="fieldPorcentaje">
+        <label>% de derechos adquiridos</label>
+        <input type="text" id="modoPorcentaje" placeholder="">
+      </div>
+      <div class="field" id="fieldRetazoSup">
+        <label>Superficie del retazo <span class="hint">(si difiere del expediente)</span></label>
+        <input type="text" inputmode="decimal" id="modoRetazoSup" data-fmt="sup" placeholder="">
+      </div>
+    </div>`;
 
   let html = '';
   if(modo==='comite'){
@@ -2634,8 +2659,85 @@ function renderModoSub(){
   }
   wrap.innerHTML = html;
   wrap.querySelectorAll('input').forEach(inp=>inp.addEventListener('input', generar));
+  /* los campos creados aquí también necesitan el formateo de números */
+  initFormatters(wrap);
   /* el desplegable de notarías debe reflejar el valor que ya tenga el campo */
   sincronizarNotarioSelect();
+  aplicarObjetoUI();
+}
+
+/* Muestra sólo los campos que pide la forma de adquisición elegida. */
+function aplicarObjetoUI(){
+  const tipo = val('modoObjeto') || 'porcentaje';
+  const usaPorcentaje = (tipo === 'porcentaje' || tipo === 'porcentajeRetazo');
+  const usaRetazo = (tipo !== 'porcentaje' && tipo !== 'totalidad');
+  const fp = q('fieldPorcentaje'), fr = q('fieldRetazoSup');
+  if(fp) fp.style.display = usaPorcentaje ? 'block' : 'none';
+  if(fr) fr.style.display = usaRetazo ? 'block' : 'none';
+}
+
+/* Superficie del retazo: la propia del retazo si se indicó, o la del expediente. */
+function superficieRetazo(){
+  const propia = val('modoRetazoSup');
+  if(!propia) return superficieRedactada();
+  const n = parseNum(propia);
+  return isNaN(n) ? propia : numeroALocal(n) + ' m²';
+}
+
+/* ------------------------------------------------------------------
+   Frase que describe QUÉ se adquiere. Reproduce las formas que usan los
+   informes emitidos:
+
+     porcentaje        un 50% de las acciones y derechos que recaen en…
+     porcentajeRetazo  un 0,71% de las acciones y derechos…, específicamente un
+                       retazo de terreno de aproximadamente 149,66 m²
+     retazo            un retazo consistente en 855,22 m² del inmueble ya…
+     retazoDerechos    acciones y derechos sobre un retazo de 200 m² sobre el…
+     totalidadRetazo   la totalidad de las acciones y derechos que le corresponden
+                       sobre un retazo de terreno del inmueble…, de una superficie
+                       aproximada de 810,00 m²
+     totalidad         la totalidad de los derechos de dominio que a ellos les
+                       corresponde sobre…
+
+   colaDerechos = cómo sigue la frase cuando se habla de derechos
+   colaInmueble = cómo se nombra el inmueble cuando se habla del retazo
+   ------------------------------------------------------------------ */
+/* En la compraventa de cuotas el retazo ya viene nombrado en la frase; según lo
+   que se adquiera se agrega su equivalencia en derechos, su superficie, o ambas,
+   como aparece en los informes emitidos. */
+function cuotaEquivalencia(){
+  const tipo = val('modoObjeto') || 'porcentaje';
+  const pct = blank(val('modoPorcentaje'),'____');
+  const sup = superficieRetazo();
+  if(tipo === 'totalidad')       return '';
+  if(tipo === 'retazo' || tipo === 'retazoDerechos' || tipo === 'totalidadRetazo')
+    return `, cuya superficie a regularizar corresponde a ${sup}`;
+  if(tipo === 'porcentajeRetazo')
+    return `, equivalente a un ${pct}% de las acciones y derechos del inmueble a mayor extensión, y cuya superficie a regularizar corresponde a ${sup}`;
+  return `, equivalente a un ${pct}% de las acciones y derechos del inmueble a mayor extensión`;
+}
+
+/* "el inmueble …" -> "del inmueble …" · "la propiedad …" -> "de la propiedad …" */
+function conDe(inmueble){
+  const t = (inmueble||'').trim();
+  if(/^el\s/i.test(t))  return 'del ' + t.slice(3);
+  if(/^los\s/i.test(t)) return 'de los ' + t.slice(4);
+  return 'de ' + t;
+}
+
+function objetoAdquirido(colaDerechos, inmueble){
+  const tipo = val('modoObjeto') || 'porcentaje';
+  const pct = blank(val('modoPorcentaje'),'____');
+  const sup = superficieRetazo();
+
+  if(tipo === 'retazo')          return `un retazo consistente en ${sup} ${conDe(inmueble)}`;
+  if(tipo === 'retazoDerechos')  return `acciones y derechos sobre un retazo de ${sup} ${conDe(inmueble)}`;
+  if(tipo === 'totalidadRetazo') return `la totalidad de las acciones y derechos que ${v('le','les')} corresponden sobre un retazo de terreno ${conDe(inmueble)}, de una superficie aproximada de ${sup}`;
+  /* Aquí NO sirve colaDerechos: "la totalidad de los derechos de dominio de los
+     derechos…" quedaba repetido. Se nombra el inmueble con "sobre". */
+  if(tipo === 'totalidad')       return `la totalidad de los derechos de dominio que ${v('le','les')} corresponden sobre ${inmueble}`;
+  if(tipo === 'porcentajeRetazo')return `un ${pct}% ${colaDerechos}, específicamente un retazo de terreno de aproximadamente ${sup}`;
+  return `un ${pct}% ${colaDerechos}`;
 }
 
 /* ============================================================
@@ -2681,17 +2783,17 @@ function textoModoAdquisicion(){
     return `${SolicitanteMay()} ${v('adquirió','adquirieron')} la posesión material del inmueble mediante una compraventa de derechos al Comité ${comite}, para los efectos de lo indicado se acompaña un Certificado de Acreditación Único Definitivo de Loteo emitido por dicha organización, específicamente consta en los antecedentes que es el lote N° ${lote}. El Título de dominio que ampara el inmueble de mayor extensión rola a Fojas ${fojas}, Nº ${numInsc} del año ${anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${cbr}. ${SolicitanteMay()} ${v('declara','declaran')} como suyos los actos posesorios materiales tales como la instalación de cercos y la limpieza del inmueble, actos que constituyen hechos positivos de dominio de acuerdo con lo establecido en el Artículo 4° del Decreto Ley N° 2.695 de 1979 en relación con el Artículo 925 del Código Civil.`;
   }
   if(modo==='compraventa'){
-    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Escritura Pública de Compraventa, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${elLa()} ${v('requirente adquiere','requirentes adquieren')} de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos que recaen en el inmueble ya singularizado y que es objeto de este procedimiento de regularización. ${fundamentoTituloAparente('la escritura pública de compraventa')}`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Escritura Pública de Compraventa, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${elLa()} ${v('requirente adquiere','requirentes adquieren')} de ${blank(val('modoContraparte'))} ${objetoAdquirido('de las acciones y derechos que recaen en el inmueble ya singularizado y que es objeto de este procedimiento de regularización','el inmueble ya singularizado y que es objeto de este procedimiento de regularización')}. ${fundamentoTituloAparente('la escritura pública de compraventa')}`;
   }
   if(modo==='promesa'){
-    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Contrato de Promesa de Compraventa, celebrado con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, donde ${elLa()} ${v('requirente adquiere','requirentes adquieren')} de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca. ${fundamentoTituloAparente('el contrato de promesa de compraventa')}`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Contrato de Promesa de Compraventa, celebrado con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, donde ${elLa()} ${v('requirente adquiere','requirentes adquieren')} de ${blank(val('modoContraparte'))} ${objetoAdquirido('de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca','el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca')}. ${fundamentoTituloAparente('el contrato de promesa de compraventa')}`;
   }
   if(modo==='cesion'){
-    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Cesión de Derechos celebrada con fecha ${fechaProsa(val('modoFecha'))}, en la Notaría Pública de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${v('adquiere','adquieren')} de parte de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos que a ${elLa()} cedente le correspondían en la propiedad a mayor extensión donde se encuentra el inmueble que se pretende regularizar mediante el presente procedimiento administrativo. ${fundamentoTituloAparente('la cesión de derechos')}`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Cesión de Derechos celebrada con fecha ${fechaProsa(val('modoFecha'))}, en la Notaría Pública de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${v('adquiere','adquieren')} de parte de ${blank(val('modoContraparte'))} ${objetoAdquirido('de los derechos que a '+elLa()+' cedente le correspondían en la propiedad a mayor extensión donde se encuentra el inmueble que se pretende regularizar mediante el presente procedimiento administrativo','la propiedad a mayor extensión donde se encuentra el inmueble que se pretende regularizar mediante el presente procedimiento administrativo')}. ${fundamentoTituloAparente('la cesión de derechos')}`;
   }
   if(modo==='compraventaCuota'){
     const lugar = val('modoLugarMayorExt');
-    return `${SolicitanteMay()} ${v('indica','indican')} haber adquirido la posesión material del inmueble a regularizar en virtud de Título Aparente de Contrato de Compraventa de Cuotas de Dominio, celebrado con fecha ${fechaProsa(val('modoFecha'))} ante la Notaría Pública de ${blank(val('modoNotario'))}, con repertorio N° ${blank(val('modoRepertorio'))}. En virtud de dicho instrumento, ${blank(val('modoContraparte'))} vende, cede y transfiere ${alALa()} el total de las acciones, derechos, partes o cuotas de dominio que a la parte vendedora corresponda o pueda corresponderle${lugar? ` sobre el inmueble ubicado en ${lugar}`:''}, del cual forma parte el retazo objeto de este procedimiento, equivalente a un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos del inmueble a mayor extensión. ${fundamentoTituloAparente('el contrato de compraventa de cuotas de dominio')}`;
+    return `${SolicitanteMay()} ${v('indica','indican')} haber adquirido la posesión material del inmueble a regularizar en virtud de Título Aparente de Contrato de Compraventa de Cuotas de Dominio, celebrado con fecha ${fechaProsa(val('modoFecha'))} ante la Notaría Pública de ${blank(val('modoNotario'))}, con repertorio N° ${blank(val('modoRepertorio'))}. En virtud de dicho instrumento, ${blank(val('modoContraparte'))} vende, cede y transfiere ${alALa()} el total de las acciones, derechos, partes o cuotas de dominio que a la parte vendedora corresponda o pueda corresponderle${lugar? ` sobre el inmueble ubicado en ${lugar}`:''}, del cual forma parte el retazo objeto de este procedimiento${cuotaEquivalencia()}. ${fundamentoTituloAparente('el contrato de compraventa de cuotas de dominio')}`;
   }
   if(modo==='adjudicacion'){
     const comite = blank(val('modoComite'),'la comunidad respectiva');
@@ -2708,7 +2810,7 @@ function textoModoAdquisicion(){
     return `${SolicitanteMay()} ${v('funda','fundan')} su pretensión en la calidad de ${herederoCalidad()} de la sucesión de ${blank(val('modoContraparte'))}, cuya Inscripción Especial de Herencia rola a fojas ${fojas}, N° ${numInsc} del año ${anioInsc} en el Conservador de Bienes Raíces de ${cbr}. Se acompaña un documento de "Autorización" con fecha ${fechaProsa(val('modoFecha'))}, suscrito por los demás herederos y copropietarios, quienes reconocen que ${solicitanteMin()} ${v('detenta','detentan')} la posesión material exclusiva sobre el inmueble. Estos antecedentes constituyen, en base al Art. 3° del D.L. 2695, un título aparente idóneo para presumir la continuidad de la posesión en los términos del Artículo 3° inciso 2° de la ley.`;
   }
   if(modo==='conyugal'){
-    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Escritura Pública de Liquidación de Bienes en Sociedad Conyugal, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, donde ${elLa()} ${v('requirente se adjudica','requirentes se adjudican')} de la disolución de la sociedad conyugal conformada con ${blank(val('modoContraparte'))}, el ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca. ${fundamentoTituloAparente('la escritura pública de liquidación de la sociedad conyugal')}`;
+    return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en Escritura Pública de Liquidación de Bienes en Sociedad Conyugal, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, donde ${elLa()} ${v('requirente se adjudica','requirentes se adjudican')} de la disolución de la sociedad conyugal conformada con ${blank(val('modoContraparte'))}, ${objetoAdquirido('de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca','el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca')}. ${fundamentoTituloAparente('la escritura pública de liquidación de la sociedad conyugal')}`;
   }
   if(modo==='privado'){
     return `${SolicitanteMay()} ${v('ampara','amparan')} su posesión en documento privado de venta de terreno, donde se declara por parte de ${blank(val('modoContraparte'))} que vende, cede y transfiere ${alALa()} un retazo de aproximadamente ${blank(val('superficie'),'____')} metros cuadrados, cuya entrega material se efectuó el ${fechaProsa(val('modoFecha'))}. Al respecto, se acompañan al expediente fotografías que acreditan actos posesorios, tales como ${blank(val('modoActos'),'cercos y mantención del predio')}, hechos positivos de aquellos a que sólo da derecho el dominio en los términos del Artículo 4° del Decreto Ley N° 2.695 de 1979, en relación con el Artículo 925 del Código Civil. ${fundamentoTituloAparente('el documento privado de venta')}`;
@@ -4727,6 +4829,7 @@ function restaurarTodo(){
     sincronizarCbrSelect('cbrSelect','cbr');
     sincronizarCbrSelect('ofCbrSelect','ofCbr');
     sincronizarNotarioSelect();
+    aplicarObjetoUI();
     if(q('postulanteSelect') && q('postulante')){
       const libre = q('postulanteSelect').value === 'otro';
       q('postulante').style.display = libre ? 'block' : 'none';
