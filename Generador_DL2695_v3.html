@@ -1569,8 +1569,8 @@ function renderPresuntos(){
   html += `<div class="btn-row" style="margin-top:0"><button type="button" class="btn btn-outline btn-sm" onclick="agregarPresunto()">+ Agregar otro presunto dueño/a</button></div>
   <p class="hint" style="margin:8px 0 0">
     Si el domicilio está en la Región ${escapeHtml(regionExpediente())} (la misma del expediente) el texto sale
-    sólo como «comuna de Talca», «comuna de Curicó»; si es de otra región se agrega
-    automáticamente «Región …».
+    sólo con la ciudad: «de Talca», «de Curicó»; si es de otra región se individualiza
+    completo: «comuna de Puerto Montt, Región de Los Lagos».
   </p>`;
   wrap.innerHTML = html;
 }
@@ -1596,15 +1596,19 @@ function updatePresunto(i,campo,valor){
   generar();
 }
 
-/* Domicilio redactado del presunto dueño: calle, comuna y —sólo si es de otra
-   región distinta a la del expediente— la región. */
+/* Domicilio redactado del presunto dueño:
+   - si está en la misma región del expediente (la Región del Maule), basta la
+     ciudad: "calle Serrano N°30, de Linares";
+   - si es de otra región, se individualiza completo: "Av. Colón 1220, comuna de
+     Puerto Montt, Región de Los Lagos". */
 function domicilioPresunto(p){
   const calle  = (p.domicilio||'').trim();
   const comuna = (p.comuna||'').trim();
   const region = fixDel((p.region||'').trim());
   const trozos = [ calle || '____________________' ];
-  if(comuna) trozos.push('comuna de ' + comuna);
-  if(region && !mismaRegion(region)) trozos.push('Región ' + region);
+  const propia = mismaRegion(region);
+  if(comuna) trozos.push(propia ? ('de ' + comuna) : ('comuna de ' + comuna));
+  if(region && !propia) trozos.push('Región ' + region);
   return trozos.join(', ');
 }
 
