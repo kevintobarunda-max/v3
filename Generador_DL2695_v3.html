@@ -1260,6 +1260,9 @@ const state = {
      seguirlo. */
   sentidoManual: { resolucion:false, notificacion:false },
   presuntos: [],
+  /* Notarías que el usuario ha escrito a mano. Se guardan para que aparezcan en
+     el desplegable las próximas veces y así la nómina crece con el uso. */
+  notariasPropias: [],
   /* Titular fallecido cuya sucesión se notifica. Sólo se usa cuando la calidad
      de los notificados es "herederos de un causante". */
   causante: { nombre:'', genero:'M', ci:'' },
@@ -1354,6 +1357,154 @@ function poblarCbrSelect(selectId){
   CBR_MAULE.forEach(c=>{ html += `<option value="${c}">${c}</option>`; });
   html += '<option value="otro">Otro / escribir manualmente</option>';
   sel.innerHTML = html;
+}
+
+/* ============================================================
+   NOTARÍAS
+
+   Esta lista se armó con las notarías que aparecen en los informes jurídicos ya
+   emitidos del expediente (van desde 1945 hasta 2024), porque son las que se
+   repiten en los títulos que se acompañan.
+
+   NO existe publicada en internet una nómina de las notarías de la Región del
+   Maule desde 1900: los protocolos notariales de esa época son fondos físicos
+   del Archivo Regional del Maule (1 Sur 948, Talca) y del Archivero Judicial de
+   Talca, y no hay listado en línea. Por eso NO se inventan nombres aquí.
+
+   En su lugar, la lista se completa sola con el uso: cada notaría que se escriba
+   a mano queda guardada en este navegador y aparece después en el desplegable,
+   bajo "Agregadas por ti". Así, a medida que se tramitan expedientes antiguos,
+   se va formando la nómina histórica con datos verificados por quien redacta.
+
+   >>> Si algún día se obtiene una nómina del Archivo, basta agregarla acá. <<<
+   ============================================================ */
+const NOTARIAS = [
+  /* --- Región del Maule --- */
+  {nombre:'Claudinet Pereira González',   comuna:'Linares',  anios:'1979'},
+  {nombre:'Julio Enrique Pizarro Maggio', comuna:'Linares',  anios:'1983'},
+  {nombre:'Iván Humberto Trincado Urra',  comuna:'Linares',  anios:'2020'},
+  {nombre:'Luis Guillermo Álvarez Donoso',comuna:'Linares',  anios:'2020, 2021'},
+  {nombre:'Ricardo Sánchez Valdés',       comuna:'Longaví',  anios:'2020'},
+  {nombre:'Rodrigo Antonio Vila Cervera', comuna:'Molina',   anios:'2021'},
+  {nombre:'Jorge Gilltet Bebin',          comuna:'Parral',   anios:'2013'},
+  {nombre:'Jorge Figueroa Herrera',       comuna:'Parral',   anios:'1998, 2024'},
+  {nombre:'Marcelo Morales Molina',       comuna:'Parral',   anios:'2024'},
+  {nombre:'Cesar Jiménez',                comuna:'Talca',    anios:'1945'},
+  {nombre:'Mario Bravo Ramírez',          comuna:'Talca',    anios:'1999'},
+  {nombre:'José Adasme Bravo',            comuna:'Talca',    anios:'2014'},
+  {nombre:'Ignacio Vidal Domínguez',      comuna:'Talca',    anios:'2020'},
+
+  /* --- Aparecen en los expedientes sin indicar la comuna --- */
+  {nombre:'Nicolas Constenla Novoa',      comuna:'',         anios:'2018'},
+  {nombre:'Eduardo Alberto Soto Díaz',    comuna:'',         anios:'2020'},
+  {nombre:'Jaime Silva Sciberras',        comuna:'',         anios:'2021'},
+
+  /* --- Fuera de la Región del Maule --- */
+  {nombre:'José Gerardo Bambach Echazarreta', comuna:'Concepción', anios:'2019', fuera:true,
+   detalle:'Segunda Notaría Pública de Concepción'}
+];
+
+/* Texto con que la notaría queda escrita en el documento. */
+function textoNotaria(n){
+  const trato = n.trato || 'don';
+  return n.comuna ? `${trato} ${n.nombre}, Comuna de ${n.comuna}` : `${trato} ${n.nombre}`;
+}
+
+/* Opciones del desplegable, agrupadas por comuna. Primero las que el propio
+   usuario ha ido agregando, porque son las que más va a volver a usar. */
+function opcionesNotarias(){
+  let html = '<option value="">— Selecciona la notaría —</option>';
+
+  const propias = state.notariasPropias || [];
+  if(propias.length){
+    html += '<optgroup label="Agregadas por ti">';
+    propias.forEach(t=>{ html += `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`; });
+    html += '</optgroup>';
+  }
+
+  const enMaule = NOTARIAS.filter(n=>!n.fuera && n.comuna);
+  const comunas = [...new Set(enMaule.map(n=>n.comuna))].sort((a,b)=>a.localeCompare(b,'es'));
+  comunas.forEach(c=>{
+    html += `<optgroup label="Comuna de ${c}">`;
+    enMaule.filter(n=>n.comuna===c).forEach(n=>{
+      html += `<option value="${escapeAttr(textoNotaria(n))}">${escapeHtml(n.nombre)}${n.anios?' · '+n.anios:''}</option>`;
+    });
+    html += '</optgroup>';
+  });
+
+  const sinComuna = NOTARIAS.filter(n=>!n.fuera && !n.comuna);
+  if(sinComuna.length){
+    html += '<optgroup label="Sin comuna indicada en el expediente">';
+    sinComuna.forEach(n=>{
+      html += `<option value="${escapeAttr(textoNotaria(n))}">${escapeHtml(n.nombre)}${n.anios?' · '+n.anios:''}</option>`;
+    });
+    html += '</optgroup>';
+  }
+
+  const fuera = NOTARIAS.filter(n=>n.fuera);
+  if(fuera.length){
+    html += '<optgroup label="Fuera de la Región del Maule">';
+    fuera.forEach(n=>{
+      html += `<option value="${escapeAttr(textoNotaria(n))}">${escapeHtml(n.nombre)} (${escapeHtml(n.comuna)})${n.anios?' · '+n.anios:''}</option>`;
+    });
+    html += '</optgroup>';
+  }
+
+  html += '<option value="otro">Otra notaría / escribir…</option>';
+  return html;
+}
+
+/* Mismo patrón que el Conservador: el <select> alimenta al input, así todo el
+   código que usa val('modoNotario') sigue funcionando igual. */
+function onNotarioSelectChange(){
+  const sel = q('modoNotarioSelect');
+  const input = q('modoNotario');
+  if(!sel || !input) return;
+  if(sel.value === 'otro'){
+    input.style.display = 'block';
+    input.value = '';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = sel.value;
+  }
+  generar();
+}
+
+/* Deja seleccionada en el desplegable la notaría que venga por texto (por
+   ejemplo al recuperar un borrador). Si no está en la lista, se muestra el
+   campo libre con su contenido. */
+function sincronizarNotarioSelect(){
+  const sel = q('modoNotarioSelect'), input = q('modoNotario');
+  if(!sel || !input) return;
+  const v = (input.value||'').trim();
+  if(!v){ sel.value = ''; input.style.display = 'none'; return; }
+  const opcion = Array.from(sel.options).find(o => o.value === v);
+  if(opcion){
+    sel.value = v;
+    input.style.display = 'none';
+  } else {
+    sel.value = 'otro';
+    input.style.display = 'block';
+  }
+}
+
+/* Guarda en este navegador la notaría que se escribió a mano, para que la próxima
+   vez esté en el desplegable. Así se va armando la nómina histórica. */
+function recordarNotaria(texto){
+  const t = (texto||'').trim().replace(/\s+/g,' ');
+  if(t.length < 6) return;                      // evita guardar restos a medio escribir
+  if(!Array.isArray(state.notariasPropias)) state.notariasPropias = [];
+  /* no se duplica ni se repite alguna que ya venga en la lista base */
+  const yaEsta = state.notariasPropias.some(x => x.toLowerCase() === t.toLowerCase())
+    || NOTARIAS.some(n => textoNotaria(n).toLowerCase() === t.toLowerCase());
+  if(yaEsta) return;
+  state.notariasPropias.push(t);
+  state.notariasPropias.sort((a,b)=>a.localeCompare(b,'es'));
+  const sel = q('modoNotarioSelect');
+  if(sel){ sel.innerHTML = opcionesNotarias(); sincronizarNotarioSelect(); }
+  guardarTodo();
+  flashStatus('Notaría agregada a tu lista ✓');
 }
 
 /* Patrón igual al del postulante: el <select> alimenta al input oculto,
@@ -2383,7 +2534,12 @@ function renderModoSub(){
   const modo = val('modoAdq');
   const wrap = q('modoSubFields');
   const commonDate = `<div class="field"><label>Fecha del acto</label><input type="date" id="modoFecha"></div>`;
-  const commonNotario = `<div class="field"><label>Notaría Pública de</label><input type="text" id="modoNotario" placeholder="notario/a y comuna"></div>`;
+  const commonNotario = `<div class="field">
+    <label>Notaría Pública de</label>
+    <select id="modoNotarioSelect" onchange="onNotarioSelectChange()">${opcionesNotarias()}</select>
+    <input type="text" id="modoNotario" style="margin-top:6px;display:none;"
+           placeholder="don/doña, nombre y comuna" oninput="generar()" onchange="recordarNotaria(this.value)">
+  </div>`;
   const commonRepertorio = `<div class="field"><label>N° Repertorio</label><input type="text" id="modoRepertorio" placeholder=""></div>`;
   const commonContraparte = `<div class="field"><label>Adquiere de (nombre)</label><input type="text" id="modoContraparte" placeholder=""></div>`;
   const commonPorc = `<div class="field"><label>% de derechos adquiridos</label><input type="text" id="modoPorcentaje" placeholder=""></div>`;
@@ -2395,14 +2551,14 @@ function renderModoSub(){
       <div class="field"><label>N° de lote</label><input type="text" id="modoLote" placeholder=""></div>
     </div>`;
   } else if(modo==='compraventa' || modo==='cesion'){
-    html = `<div class="grid2">${commonDate}${commonRepertorio}</div><div class="grid2">${commonNotario}${commonContraparte}</div>${commonPorc}`;
+    html = `<div class="grid2">${commonDate}${commonRepertorio}</div>${commonNotario}${commonContraparte}${commonPorc}`;
   } else if(modo==='compraventaCuota'){
-    html = `<div class="grid2">${commonDate}${commonRepertorio}</div><div class="grid2">${commonNotario}${commonContraparte}</div>${commonPorc}
+    html = `<div class="grid2">${commonDate}${commonRepertorio}</div>${commonNotario}${commonContraparte}${commonPorc}
     <div class="field"><label>Comuna / lugar del inmueble a mayor extensión (si difiere)</label><input type="text" id="modoLugarMayorExt" placeholder=""></div>`;
   } else if(modo==='promesa'){
-    html = `<div class="grid2">${commonDate}${commonNotario}</div>${commonContraparte}${commonPorc}`;
+    html = `${commonDate}${commonNotario}${commonContraparte}${commonPorc}`;
   } else if(modo==='adjudicacion'){
-    html = `<div class="grid2">${commonDate}${commonNotario}</div><div class="grid2">${commonRepertorio}
+    html = `${commonNotario}<div class="grid2">${commonDate}${commonRepertorio}</div><div class="grid2">
       <div class="field"><label>Comunidad / grupo habitacional con quien se liquida</label><input type="text" id="modoComite" placeholder=""></div></div>
       <div class="field"><label>Nombre del inmueble de mayor cabida / lote resultante</label><input type="text" id="modoContraparte" placeholder=""></div>${commonPorc}`;
   } else if(modo==='herencia'){
@@ -2411,7 +2567,7 @@ function renderModoSub(){
       <div class="field"><label>Fecha de la autorización de los demás herederos</label><input type="date" id="modoFecha"></div>
     </div>`;
   } else if(modo==='conyugal'){
-    html = `<div class="grid2">${commonDate}${commonNotario}</div>
+    html = `${commonDate}${commonNotario}
       <div class="field"><label>Cónyuge con quien disolvió la sociedad conyugal</label><input type="text" id="modoContraparte" placeholder=""></div>${commonPorc}`;
   } else if(modo==='donacion'){
     html = `<div class="grid2">
@@ -2440,6 +2596,8 @@ function renderModoSub(){
   }
   wrap.innerHTML = html;
   wrap.querySelectorAll('input').forEach(inp=>inp.addEventListener('input', generar));
+  /* el desplegable de notarías debe reflejar el valor que ya tenga el campo */
+  sincronizarNotarioSelect();
 }
 
 /* ============================================================
@@ -4391,6 +4549,7 @@ function guardarAhora(){
         presuntos: state.presuntos,
         presuntosTipo: state.presuntosTipo,
         causante: state.causante,
+        notariasPropias: state.notariasPropias,
         motivosOrden: state.motivosOrden,
         masivoFilas: state.masivoFilas,
         /* ediciones manuales por párrafo de cada documento */
@@ -4472,6 +4631,7 @@ function restaurarTodo(){
       genero: est.causante.genero === 'F' ? 'F' : 'M',
       ci: est.causante.ci || ''
     };
+    if(Array.isArray(est.notariasPropias)) state.notariasPropias = est.notariasPropias;
     if(Array.isArray(est.motivosOrden)) state.motivosOrden = est.motivosOrden;
     if(Array.isArray(est.masivoFilas)) state.masivoFilas = est.masivoFilas;
 
@@ -4528,6 +4688,7 @@ function restaurarTodo(){
     // 5) los conservadores usan desplegable + campo libre
     sincronizarCbrSelect('cbrSelect','cbr');
     sincronizarCbrSelect('ofCbrSelect','ofCbr');
+    sincronizarNotarioSelect();
     if(q('postulanteSelect') && q('postulante')){
       const libre = q('postulanteSelect').value === 'otro';
       q('postulante').style.display = libre ? 'block' : 'none';
@@ -4626,6 +4787,7 @@ function borrarGuardado(){
   state.presuntos = [];
   state.presuntosTipo = 'dueño';
   state.causante = {nombre:'', genero:'M', ci:''};
+  state.notariasPropias = [];
   state.motivosOrden = [];
   state.masivoFilas = [];
   state.calcSup = {totales:null, reg:null};
