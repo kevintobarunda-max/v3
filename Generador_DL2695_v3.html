@@ -1362,14 +1362,21 @@ function poblarCbrSelect(selectId){
 /* ============================================================
    NOTARÍAS
 
-   Esta lista se armó con las notarías que aparecen en los informes jurídicos ya
-   emitidos del expediente (van desde 1945 hasta 2024), porque son las que se
-   repiten en los títulos que se acompañan.
+   La lista tiene dos orígenes, marcados en el campo "fuente":
+
+     expediente  Notarías que constan en los informes jurídicos ya emitidos
+                 (de 1945 a 2024). Dato firme: salieron de los propios títulos.
+     directorio  Notarías en funciones tomadas de directorios de notarías de
+                 turno (vigentes 2026). Conviene confirmarlas antes de emitir,
+                 porque no provienen de una fuente oficial.
 
    NO existe publicada en internet una nómina de las notarías de la Región del
    Maule desde 1900: los protocolos notariales de esa época son fondos físicos
    del Archivo Regional del Maule (1 Sur 948, Talca) y del Archivero Judicial de
-   Talca, y no hay listado en línea. Por eso NO se inventan nombres aquí.
+   Talca, y no hay listado en línea. Se buscó en el Poder Judicial, el Archivo
+   Nacional, la Biblioteca del Congreso y la Asociación de Notarios, sin
+   resultado. Por eso NO se inventan nombres aquí: son datos que se imprimen en
+   un documento oficial.
 
    En su lugar, la lista se completa sola con el uso: cada notaría que se escriba
    a mano queda guardada en este navegador y aparece después en el desplegable,
@@ -1379,35 +1386,66 @@ function poblarCbrSelect(selectId){
    >>> Si algún día se obtiene una nómina del Archivo, basta agregarla acá. <<<
    ============================================================ */
 const NOTARIAS = [
-  /* --- Región del Maule --- */
-  {nombre:'Claudinet Pereira González',   comuna:'Linares',  anios:'1979'},
-  {nombre:'Julio Enrique Pizarro Maggio', comuna:'Linares',  anios:'1983'},
-  {nombre:'Iván Humberto Trincado Urra',  comuna:'Linares',  anios:'2020'},
-  {nombre:'Luis Guillermo Álvarez Donoso',comuna:'Linares',  anios:'2020, 2021'},
-  {nombre:'Ricardo Sánchez Valdés',       comuna:'Longaví',  anios:'2020'},
-  {nombre:'Rodrigo Antonio Vila Cervera', comuna:'Molina',   anios:'2021'},
-  {nombre:'Jorge Gilltet Bebin',          comuna:'Parral',   anios:'2013'},
-  {nombre:'Jorge Figueroa Herrera',       comuna:'Parral',   anios:'1998, 2024'},
-  {nombre:'Marcelo Morales Molina',       comuna:'Parral',   anios:'2024'},
-  {nombre:'Cesar Jiménez',                comuna:'Talca',    anios:'1945'},
-  {nombre:'Mario Bravo Ramírez',          comuna:'Talca',    anios:'1999'},
-  {nombre:'José Adasme Bravo',            comuna:'Talca',    anios:'2014'},
-  {nombre:'Ignacio Vidal Domínguez',      comuna:'Talca',    anios:'2020'},
+  /* ---- Comuna de Cauquenes ---- */
 
-  /* --- Aparecen en los expedientes sin indicar la comuna --- */
-  {nombre:'Nicolas Constenla Novoa',      comuna:'',         anios:'2018'},
-  {nombre:'Eduardo Alberto Soto Díaz',    comuna:'',         anios:'2020'},
-  {nombre:'Jaime Silva Sciberras',        comuna:'',         anios:'2021'},
+  /* ---- Comuna de Constitución ---- */
+  {nombre:'Álvaro Mera Correa',            comuna:'Constitución', fuente:'directorio'},
 
-  /* --- Fuera de la Región del Maule --- */
-  {nombre:'José Gerardo Bambach Echazarreta', comuna:'Concepción', anios:'2019', fuera:true,
-   detalle:'Segunda Notaría Pública de Concepción'}
+  /* ---- Comuna de Curicó ---- */
+  {nombre:'René León Manieu',              comuna:'Curicó',   fuente:'directorio'},
+
+  /* ---- Comuna de Linares ---- */
+  {nombre:'Claudinet Pereira González',    comuna:'Linares',  fuente:'expediente', anios:'1979'},
+  {nombre:'Julio Enrique Pizarro Maggio',  comuna:'Linares',  fuente:'expediente', anios:'1983'},
+  {nombre:'Iván Humberto Trincado Urra',   comuna:'Linares',  fuente:'expediente', anios:'2020'},
+  {nombre:'Luis Guillermo Álvarez Donoso', comuna:'Linares',  fuente:'expediente', anios:'2020, 2021'},
+
+  /* ---- Comuna de Longaví ---- */
+  {nombre:'Ricardo Sánchez Valdés',        comuna:'Longaví',  fuente:'expediente', anios:'2020'},
+
+  /* ---- Comuna de Molina ---- */
+  {nombre:'Rodrigo Antonio Vila Cervera',  comuna:'Molina',   fuente:'expediente', anios:'2021'},
+
+  /* ---- Comuna de Parral ---- */
+  {nombre:'Jorge Figueroa Herrera',        comuna:'Parral',   fuente:'expediente', anios:'1998, 2024'},
+  {nombre:'Jorge Gilltet Bebin',           comuna:'Parral',   fuente:'expediente', anios:'2013'},
+  {nombre:'Marcelo Morales Molina',        comuna:'Parral',   fuente:'expediente', anios:'2024'},
+
+  /* ---- Comuna de Talca ---- */
+  {nombre:'Cesar Jiménez',                 comuna:'Talca',    fuente:'expediente', anios:'1945'},
+  {nombre:'Mario Bravo Ramírez',           comuna:'Talca',    fuente:'expediente', anios:'1999'},
+  {nombre:'José Adasme Bravo',             comuna:'Talca',    fuente:'expediente', anios:'2014'},
+  {nombre:'Ignacio Vidal Domínguez',       comuna:'Talca',    fuente:'expediente', anios:'2020'},
+  /* Jaime Silva Sciberras aparece en el expediente sin comuna; la comuna se
+     confirmó con el directorio de notarías de turno de Talca. */
+  {nombre:'Jaime Silva Sciberras',         comuna:'Talca',    fuente:'expediente', anios:'2021'},
+  {nombre:'Enrique Ortiz Schindler',       comuna:'Talca',    fuente:'directorio'},
+  {nombre:'Teodoro Durán Palma',           comuna:'Talca',    fuente:'directorio'},
+  {nombre:'María Angélica Ramírez Fuentes',comuna:'Talca',    fuente:'directorio', trato:'doña'},
+  {nombre:'Pablo Almendras Burgos',        comuna:'Talca',    fuente:'directorio'},
+
+  /* ---- Aparecen en los expedientes sin indicar la comuna ---- */
+  {nombre:'Nicolas Constenla Novoa',       comuna:'',         fuente:'expediente', anios:'2018'},
+  {nombre:'Eduardo Alberto Soto Díaz',     comuna:'',         fuente:'expediente', anios:'2020'},
+
+  /* ---- Fuera de la Región del Maule ---- */
+  {nombre:'José Gerardo Bambach Echazarreta', comuna:'Concepción', fuera:true, fuente:'expediente',
+   anios:'2019', detalle:'Segunda Notaría Pública de Concepción'}
 ];
 
 /* Texto con que la notaría queda escrita en el documento. */
 function textoNotaria(n){
   const trato = n.trato || 'don';
   return n.comuna ? `${trato} ${n.nombre}, Comuna de ${n.comuna}` : `${trato} ${n.nombre}`;
+}
+
+/* De dónde salió cada notaría. No se muestra en el nombre: va como ayuda
+   emergente, para poder distinguir las que constan en los propios expedientes
+   (dato firme) de las tomadas de directorios web (conviene confirmarlas). */
+function procedenciaNotaria(n){
+  if(n.fuente === 'directorio') return 'Tomada de un directorio de notarías (vigente 2026). Confírmala antes de emitir.';
+  const donde = n.anios ? 'expedientes del año ' + n.anios : 'los expedientes';
+  return 'Consta en ' + donde + (n.detalle ? ' · ' + n.detalle : '');
 }
 
 /* Opciones del desplegable, agrupadas por comuna. Primero las que el propio
@@ -1427,7 +1465,7 @@ function opcionesNotarias(){
   comunas.forEach(c=>{
     html += `<optgroup label="Comuna de ${c}">`;
     enMaule.filter(n=>n.comuna===c).forEach(n=>{
-      html += `<option value="${escapeAttr(textoNotaria(n))}">${escapeHtml(n.nombre)}${n.anios?' · '+n.anios:''}</option>`;
+      html += `<option value="${escapeAttr(textoNotaria(n))}" title="${escapeAttr(procedenciaNotaria(n))}">${escapeHtml(n.nombre)}</option>`;
     });
     html += '</optgroup>';
   });
@@ -1436,7 +1474,7 @@ function opcionesNotarias(){
   if(sinComuna.length){
     html += '<optgroup label="Sin comuna indicada en el expediente">';
     sinComuna.forEach(n=>{
-      html += `<option value="${escapeAttr(textoNotaria(n))}">${escapeHtml(n.nombre)}${n.anios?' · '+n.anios:''}</option>`;
+      html += `<option value="${escapeAttr(textoNotaria(n))}" title="${escapeAttr(procedenciaNotaria(n))}">${escapeHtml(n.nombre)}</option>`;
     });
     html += '</optgroup>';
   }
@@ -1445,7 +1483,7 @@ function opcionesNotarias(){
   if(fuera.length){
     html += '<optgroup label="Fuera de la Región del Maule">';
     fuera.forEach(n=>{
-      html += `<option value="${escapeAttr(textoNotaria(n))}">${escapeHtml(n.nombre)} (${escapeHtml(n.comuna)})${n.anios?' · '+n.anios:''}</option>`;
+      html += `<option value="${escapeAttr(textoNotaria(n))}" title="${escapeAttr(procedenciaNotaria(n))}">${escapeHtml(n.nombre)} (${escapeHtml(n.comuna)})</option>`;
     });
     html += '</optgroup>';
   }
