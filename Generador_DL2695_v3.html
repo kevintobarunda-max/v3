@@ -385,7 +385,8 @@
           </div>
           <div class="field">
             <label>Región</label>
-            <input type="text" id="region" value="del Maule">
+            <select id="regionSelect" onchange="onRegionSelectChange()"></select>
+            <input type="text" id="region" value="del Maule" style="margin-top:6px;display:none;" placeholder="Escribe la región" oninput="renderPresuntos(); generar();">
           </div>
         </div>
         <div class="grid2">
@@ -816,6 +817,19 @@
           <input type="text" id="resN" placeholder="0" data-fmt="digits">
         </div>
       </fieldset>
+      <fieldset id="fsMotivosResolucion" style="display:none">
+        <legend>Fundamentos de la resolución que deniega</legend>
+        <p class="hint" style="margin:0 0 8px;">
+          Cuando la resolución <b>deniega</b>, el considerando 3 se redacta con los
+          <b>motivos del rechazo</b> marcados en el Informe Jurídico. Cualquier cambio que
+          hagas allí (motivos, datos de cada motivo u orden de las letras) se refleja al
+          instante en esta resolución y en los campos para copiar.
+        </p>
+        <div class="btn-row" style="margin-top:0">
+          <button type="button" class="btn btn-outline btn-sm" onclick="irAMotivosRechazo()">✎ Editar los motivos del rechazo →</button>
+        </div>
+        <p class="hint" id="resumenMotivos" style="margin:8px 0 0;"></p>
+      </fieldset>
     </div>
 
     <!-- ---- NOTIFICACIÓN specific fields ---- -->
@@ -846,6 +860,7 @@
         <div class="status" id="statusLine">Completa los datos del expediente para generar el documento.</div>
         <div class="btn-row" style="margin-top:0">
           <button class="btn btn-outline btn-sm" onclick="regenerarDesdeFormulario()" title="Descarta tus ediciones manuales y regenera el texto desde el formulario">↻ Actualizar vista previa</button>
+          <button class="btn btn-outline btn-sm" id="btnRecuperarEdicion" style="display:none" onclick="recuperarEdicion()" title="Vuelve a poner el texto que habías escrito a mano antes de que el documento se rehiciera con los datos del formulario">↺ Recuperar mi texto editado</button>
           <button class="btn btn-outline btn-sm" onclick="copiar()">⧉ Copiar texto</button>
           <button class="btn btn-red btn-sm" onclick="descargar()">⬇ Descargar .txt</button>
         </div>
@@ -1091,6 +1106,9 @@ const state = {
   /* --- conserva ediciones manuales de la vista previa entre pestañas --- */
   previewDirty: { informe:false, resolucion:false, notificacion:false },
   previewText:  { informe:'', resolucion:'', notificacion:'' },
+  /* --- respaldo de la última edición manual, para poder recuperarla cuando el
+         documento se rehace porque cambió un dato del formulario --- */
+  previewBackup:{ informe:'', resolucion:'', notificacion:'' },
   lastPartes: null,
   /* --- expedientes del OFICIO MASIVO (una fila de la tabla por expediente) --- */
   masivoFilas: [],
@@ -1134,6 +1152,104 @@ function onComunaChange(){
   const opt = sel.options[sel.selectedIndex];
   q('provincia').value = opt ? (opt.dataset.provincia || '') : '';
   generar();
+}
+
+/* Lista plana de comunas del Maule (para los desplegables de domicilio). */
+function comunasMaulePlano(){
+  const salida = [];
+  Object.keys(COMUNAS_MAULE).forEach(prov=>{
+    COMUNAS_MAULE[prov].forEach(c=>salida.push({comuna:c, provincia:prov}));
+  });
+  return salida;
+}
+
+/* ============================================================
+   REGIONES DE CHILE
+   Se escriben tal como deben salir después de la palabra "Región"
+   (por ejemplo: Región del Maule, Región Metropolitana de Santiago).
+   ============================================================ */
+const REGIONES_CHILE = [
+  'de Arica y Parinacota',
+  'de Tarapacá',
+  'de Antofagasta',
+  'de Atacama',
+  'de Coquimbo',
+  'de Valparaíso',
+  'Metropolitana de Santiago',
+  'del Libertador General Bernardo O’Higgins',
+  'del Maule',
+  'de Ñuble',
+  'del Biobío',
+  'de La Araucanía',
+  'de Los Ríos',
+  'de Los Lagos',
+  'de Aysén del General Carlos Ibáñez del Campo',
+  'de Magallanes y de la Antártica Chilena'
+];
+
+const REGION_POR_DEFECTO = 'del Maule';
+
+/* Las opciones se muestran tal como se escriben en el documento después de la
+   palabra "Región" (del Maule, de Los Lagos, Metropolitana de Santiago…), así
+   caben completas en las columnas angostas del formulario. */
+function opcionesRegiones(seleccionada){
+  return REGIONES_CHILE.map(r=>
+    `<option value="${escapeHtml(r)}" ${r===seleccionada?'selected':''}>${escapeHtml(r)}</option>`
+  ).join('');
+}
+
+/* Región del expediente (la que firma la SEREMI). Todo lo que esté en esta
+   misma región se redacta sin repetirla: basta "comuna de Talca". */
+function regionExpediente(){
+  return fixDel(val('region') || REGION_POR_DEFECTO);
+}
+function mismaRegion(region){
+  const a = fixDel((region||'').trim()).toLowerCase();
+  const b = regionExpediente().trim().toLowerCase();
+  return a === '' || a === b;
+}
+function esMaule(region){
+  return fixDel((region||REGION_POR_DEFECTO).trim()).toLowerCase() === 'del maule';
+}
+
+/* Desplegable de regiones del panel principal: alimenta al input #region,
+   así todo el código que ya usaba val('region') sigue funcionando igual
+   (mismo patrón que el Conservador y el postulante). */
+function poblarRegionSelect(){
+  const sel = q('regionSelect');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Selecciona región —</option>' +
+                  opcionesRegiones(null) +
+                  '<option value="otro">Otra / escribir manualmente</option>';
+}
+function onRegionSelectChange(){
+  const sel = q('regionSelect'), input = q('region');
+  if(!sel || !input) return;
+  if(sel.value === 'otro'){
+    input.style.display = 'block';
+    input.value = '';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = sel.value;
+  }
+  renderPresuntos();   // los domicilios dependen de la región del expediente
+  generar();
+}
+function sincronizarRegionSelect(){
+  const sel = q('regionSelect'), input = q('region');
+  if(!sel || !input) return;
+  const v = fixDel((input.value||'').trim());
+  if(!v){ sel.value = ''; input.style.display = 'none'; return; }
+  const encontrada = REGIONES_CHILE.find(r=>r.toLowerCase()===v.toLowerCase());
+  if(encontrada){
+    input.value = encontrada;
+    sel.value = encontrada;
+    input.style.display = 'none';
+  } else {
+    sel.value = 'otro';
+    input.style.display = 'block';
+  }
 }
 
 /* ============================================================
@@ -1374,13 +1490,57 @@ const FORMAS_CALIDAD = {
   heredero: {mSing:'heredero', fSing:'heredera', mPlur:'herederos', fPlur:'herederas'}
 };
 
+function presuntoVacio(){
+  return {nombre:'', genero:'M', ci:'', domicilio:'', comuna:'', region:''};
+}
+
+/* Desplegable de regiones para un presunto dueño. Si viene una región escrita
+   a mano que no está en la lista, se agrega como primera opción para no
+   perderla. */
+function selectRegionPresunto(p, i){
+  const actual = fixDel((p.region || regionExpediente()).trim());
+  const conocida = REGIONES_CHILE.some(r=>r.toLowerCase()===actual.toLowerCase());
+  const extra = (!conocida && actual)
+    ? `<option value="${escapeHtml(actual)}" selected>${escapeHtml(actual)}</option>`
+    : '';
+  return `<select onchange="updatePresunto(${i},'region',this.value)">
+    ${extra}${opcionesRegiones(conocida ? REGIONES_CHILE.find(r=>r.toLowerCase()===actual.toLowerCase()) : null)}
+  </select>`;
+}
+
+/* Comuna del domicilio: si la región es del Maule se ofrece el desplegable con
+   sus comunas (agrupadas por provincia); en otras regiones se escribe libre. */
+function campoComunaPresunto(p, i){
+  const region = p.region || regionExpediente();
+  const valor = (p.comuna||'').trim();
+  if(!esMaule(region)){
+    return `<input type="text" value="${escapeHtml(valor).replace(/"/g,'&quot;')}" placeholder="Escribe la comuna" oninput="updatePresunto(${i},'comuna',this.value)">`;
+  }
+  let opts = `<option value="">— Selecciona comuna —</option>`;
+  Object.keys(COMUNAS_MAULE).forEach(prov=>{
+    opts += `<optgroup label="Provincia de ${prov}">`;
+    COMUNAS_MAULE[prov].forEach(c=>{
+      opts += `<option value="${c}" ${c===valor?'selected':''}>${c}</option>`;
+    });
+    opts += `</optgroup>`;
+  });
+  return `<select onchange="updatePresunto(${i},'comuna',this.value)">${opts}</select>`;
+}
+
 function renderPresuntos(){
   const wrap = q('presuntosWrap');
   if(!wrap) return;
   const activo = q('obs-notif') && q('obs-notif').checked;
   if(!activo){ wrap.innerHTML=''; return; }
-  if(state.presuntos.length===0) state.presuntos.push({nombre:'',genero:'M',ci:'',domicilio:''});
+  if(state.presuntos.length===0) state.presuntos.push(presuntoVacio());
   if(!state.presuntosTipo) state.presuntosTipo = 'dueño';
+
+  /* Compatibilidad con borradores antiguos: los presuntos guardados antes de
+     esta versión no traen comuna ni región. */
+  state.presuntos.forEach(p=>{
+    if(typeof p.comuna !== 'string') p.comuna = '';
+    if(typeof p.region !== 'string') p.region = '';
+  });
 
   let html = `<div class="field" style="max-width:260px;">
     <label>Calidad de los presuntos</label>
@@ -1391,8 +1551,8 @@ function renderPresuntos(){
   </div>`;
 
   state.presuntos.forEach((p,i)=>{
-    html += `<div class="persona-row">
-      <div class="field"><label>Nombre</label><input type="text" value="${p.nombre.replace(/"/g,'&quot;')}" placeholder="Arcadio José Bustamante Villagra" oninput="updatePresunto(${i},'nombre',this.value)"></div>
+    html += `<div class="persona-row" style="border:1px solid #dfe4ec;border-radius:9px;padding:8px 10px;background:#fff;">
+      <div class="field" style="flex:2;min-width:180px;"><label>Nombre</label><input type="text" value="${p.nombre.replace(/"/g,'&quot;')}" placeholder="Arcadio José Bustamante Villagra" oninput="updatePresunto(${i},'nombre',this.value)"></div>
       <div class="field" style="max-width:130px;"><label>Género</label>
         <select onchange="updatePresunto(${i},'genero',this.value)">
           <option value="M" ${p.genero!=='F'?'selected':''}>Masculino</option>
@@ -1400,15 +1560,22 @@ function renderPresuntos(){
         </select>
       </div>
       <div class="field"><label>C.I. N°</label><input type="text" value="${p.ci.replace(/"/g,'&quot;')}" placeholder="6.607.818-3" oninput="this.value=formatRutEscribiendo(this.value); updatePresunto(${i},'ci',this.value)" onblur="this.value=formatRutValue(this.value); updatePresunto(${i},'ci',this.value)"></div>
-      <div class="field"><label>Domicilio</label><input type="text" value="${p.domicilio.replace(/"/g,'&quot;')}" placeholder="calle Serrano N°30, Linares" oninput="updatePresunto(${i},'domicilio',this.value)"></div>
+      <div class="field" style="flex:2;min-width:180px;"><label>Domicilio (calle y número)</label><input type="text" value="${p.domicilio.replace(/"/g,'&quot;')}" placeholder="calle Serrano N°30" oninput="updatePresunto(${i},'domicilio',this.value)"></div>
+      <div class="field" style="min-width:170px;"><label>Región del domicilio</label>${selectRegionPresunto(p,i)}</div>
+      <div class="field" style="min-width:150px;"><label>Comuna del domicilio</label>${campoComunaPresunto(p,i)}</div>
       <button type="button" class="btn btn-outline btn-sm" onclick="quitarPresunto(${i})" title="Quitar">✕</button>
     </div>`;
   });
-  html += `<div class="btn-row" style="margin-top:0"><button type="button" class="btn btn-outline btn-sm" onclick="agregarPresunto()">+ Agregar otro presunto dueño/a</button></div>`;
+  html += `<div class="btn-row" style="margin-top:0"><button type="button" class="btn btn-outline btn-sm" onclick="agregarPresunto()">+ Agregar otro presunto dueño/a</button></div>
+  <p class="hint" style="margin:8px 0 0">
+    Si el domicilio está en la Región ${escapeHtml(regionExpediente())} (la misma del expediente) el texto sale
+    sólo como «comuna de Talca», «comuna de Curicó»; si es de otra región se agrega
+    automáticamente «Región …».
+  </p>`;
   wrap.innerHTML = html;
 }
 function agregarPresunto(){
-  state.presuntos.push({nombre:'',genero:'M',ci:'',domicilio:''});
+  state.presuntos.push(presuntoVacio());
   renderPresuntos();
   generar();
 }
@@ -1418,8 +1585,27 @@ function quitarPresunto(i){
   generar();
 }
 function updatePresunto(i,campo,valor){
+  if(!state.presuntos[i]) return;
   state.presuntos[i][campo] = valor;
+  /* Al cambiar la región hay que volver a dibujar la fila, porque la comuna
+     pasa de desplegable (Maule) a campo escrito (otras regiones) y viceversa. */
+  if(campo === 'region'){
+    if(!esMaule(valor)) state.presuntos[i].comuna = '';
+    renderPresuntos();
+  }
   generar();
+}
+
+/* Domicilio redactado del presunto dueño: calle, comuna y —sólo si es de otra
+   región distinta a la del expediente— la región. */
+function domicilioPresunto(p){
+  const calle  = (p.domicilio||'').trim();
+  const comuna = (p.comuna||'').trim();
+  const region = fixDel((p.region||'').trim());
+  const trozos = [ calle || '____________________' ];
+  if(comuna) trozos.push('comuna de ' + comuna);
+  if(region && !mismaRegion(region)) trozos.push('Región ' + region);
+  return trozos.join(', ');
 }
 
 /* ============================================================
@@ -1442,7 +1628,7 @@ function textoObservaciones(){
   }
 
   if(q('obs-notif') && q('obs-notif').checked){
-    const personas = state.presuntos.length ? state.presuntos : [{nombre:'',genero:'M',ci:'',domicilio:''}];
+    const personas = state.presuntos.length ? state.presuntos : [presuntoVacio()];
     const tipo = state.presuntosTipo || 'dueño';
     const formas = FORMAS_CALIDAD[tipo] || FORMAS_CALIDAD.dueño;
     const esPlural = personas.length > 1;
@@ -1455,7 +1641,7 @@ function textoObservaciones(){
       const trato = p.genero==='F' ? 'doña' : 'don';
       const nom = upper(blank(p.nombre,'____________________'));
       const ci = blank(p.ci,'____________');
-      const dom = blank(p.domicilio,'____________________');
+      const dom = domicilioPresunto(p);
       const domiciliado = p.genero === 'F' ? 'domiciliada' : 'domiciliado';
       return `${trato} ${nom}, C.I. N° ${ci}, ${domiciliado} en ${dom}`;
     });
@@ -1478,6 +1664,10 @@ function textoObservaciones(){
 function g(masc, fem){ return state.genero === 'F' ? fem : masc; }
 function donDona(){ return g('don','doña'); }
 function DonDona(){ return g('Don','Doña'); }
+/* Trato destacado en MAYÚSCULAS: se usa cada vez que el trato va pegado al
+   nombre del solicitante (que también va en mayúsculas), de modo que la
+   individualización quede resaltada: DOÑA LUZ ELIANA HERNÁNDEZ BARRERA. */
+function DONDONA(){ return g('DON','DOÑA'); }
 function elLa(){ return g('el','la'); }
 function ElLa(){ return g('El','La'); }
 function solicitanteMin(){ return elLa()+' solicitante'; }
@@ -1537,7 +1727,8 @@ mainTabs.forEach(btn=>{
     if(esOficios){
       if(!state.oficiosInit){ initOficios(); state.oficiosInit = true; }
     } else {
-      generar();
+      /* al cambiar de pestaña se respeta lo que el usuario haya escrito a mano */
+      generar({conservarEdicion:true});
     }
   });
 });
@@ -1573,7 +1764,32 @@ function setResolucion(r){
   state.tipoResolucion = r;
   q('btnResAcoge').classList.toggle('active', r==='acoge');
   q('btnResDeniega').classList.toggle('active', r==='deniega');
+  actualizarAvisoMotivosResolucion();
   generar();
+}
+
+/* En la resolución que deniega, los fundamentos salen de los motivos del
+   rechazo del Informe Jurídico: se recuerda en pantalla y se resume qué
+   motivos están marcados. */
+function actualizarAvisoMotivosResolucion(){
+  const fs = q('fsMotivosResolucion');
+  if(!fs) return;
+  const deniega = state.tipoResolucion === 'deniega';
+  fs.style.display = deniega ? 'block' : 'none';
+  const resumen = q('resumenMotivos');
+  if(!resumen || !deniega) return;
+  const orden = ordenMotivosActivo();
+  resumen.innerHTML = orden.length
+    ? 'Motivos marcados: ' + orden.map((k,i)=>`<b>${LETRAS[i]})</b> ${escapeHtml(labelMotivo(k))}`).join(' · ')
+    : '<b>Aún no hay motivos marcados</b>, así que el considerando 3 sale con un texto de aviso.';
+}
+
+/* Lleva al usuario a los motivos del rechazo del Informe Jurídico. */
+function irAMotivosRechazo(){
+  document.querySelector('#mainTabs button[data-tab="informe"]').click();
+  setResultado('no');
+  const wrap = q('ordenMotivosWrap');
+  if(wrap) wrap.scrollIntoView({behavior:'smooth', block:'center'});
 }
 function setNotificacion(r){
   state.tipoNotificacion = r;
@@ -1599,7 +1815,9 @@ function renderModoSub(){
   const modo = val('modoAdq');
   const wrap = q('modoSubFields');
   const commonDate = `<div class="field"><label>Fecha del acto</label><input type="date" id="modoFecha"></div>`;
-  const commonNotario = `<div class="field"><label>Notario/a y comuna</label><input type="text" id="modoNotario" placeholder="don Marcelo Morales Molina, comuna de Parral"></div>`;
+  /* El documento redacta siempre «en la Notaría Pública de …», por eso aquí
+     sólo se pide el notario/a y su comuna. */
+  const commonNotario = `<div class="field"><label>Notaría Pública de… (notario/a y comuna)</label><input type="text" id="modoNotario" placeholder="don Marcelo Morales Molina, comuna de Parral"></div>`;
   const commonRepertorio = `<div class="field"><label>N° Repertorio</label><input type="text" id="modoRepertorio" placeholder="1632/2024"></div>`;
   const commonContraparte = `<div class="field"><label>Adquiere de (nombre)</label><input type="text" id="modoContraparte" placeholder="doña Eliada Filomena Ormeño Navarrete"></div>`;
   const commonPorc = `<div class="field"><label>% de derechos adquiridos</label><input type="text" id="modoPorcentaje" placeholder="50"></div>`;
@@ -1692,17 +1910,17 @@ function textoModoAdquisicion(){
     return `${SolicitanteMay()} adquirió la posesión material del inmueble mediante una compraventa de derechos al Comité ${comite}, para los efectos de lo indicado se acompaña un Certificado de Acreditación Único Definitivo de Loteo emitido por dicha organización, específicamente consta en los antecedentes que es el lote N° ${lote}. El Título de dominio que ampara el inmueble de mayor extensión rola a Fojas ${fojas}, Nº ${numInsc} del año ${anioInsc} del Registro de Propiedad del Conservador de Bienes Raíces de ${cbr}. ${SolicitanteMay()} declara como suyos los actos posesorios materiales tales como la instalación de cercos y la limpieza del inmueble, actos que constituyen hechos positivos de dominio de acuerdo con lo establecido en el Artículo 4° del Decreto Ley N° 2.695 de 1979 en relación con el Artículo 925 del Código Civil.`;
   }
   if(modo==='compraventa'){
-    return `${SolicitanteMay()} ampara su posesión en Escritura Pública de Compraventa, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${elLa()} requirente adquiere de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos que recaen en el inmueble ya singularizado y que es objeto de este procedimiento de regularización.`;
+    return `${SolicitanteMay()} ampara su posesión en Escritura Pública de Compraventa, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde ${elLa()} requirente adquiere de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos que recaen en el inmueble ya singularizado y que es objeto de este procedimiento de regularización.`;
   }
   if(modo==='promesa'){
-    return `${SolicitanteMay()} ampara su posesión en Contrato de Promesa de Compraventa, celebrado con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, donde ${elLa()} requirente adquiere de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca.`;
+    return `${SolicitanteMay()} ampara su posesión en Contrato de Promesa de Compraventa, celebrado con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, donde ${elLa()} requirente adquiere de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca.`;
   }
   if(modo==='cesion'){
-    return `${SolicitanteMay()} ampara su posesión en Cesión de Derechos celebrada con fecha ${fechaProsa(val('modoFecha'))}, en la notaría de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde adquiere de parte de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos que a ${elLa()} cedente le correspondían en la propiedad a mayor extensión donde se encuentra el inmueble que se pretende regularizar mediante el presente procedimiento administrativo.`;
+    return `${SolicitanteMay()} ampara su posesión en Cesión de Derechos celebrada con fecha ${fechaProsa(val('modoFecha'))}, en la Notaría Pública de ${blank(val('modoNotario'))}, anotada bajo el repertorio N° ${blank(val('modoRepertorio'))}, donde adquiere de parte de ${blank(val('modoContraparte'))} un ${blank(val('modoPorcentaje'),'____')}% de los derechos que a ${elLa()} cedente le correspondían en la propiedad a mayor extensión donde se encuentra el inmueble que se pretende regularizar mediante el presente procedimiento administrativo.`;
   }
   if(modo==='compraventaCuota'){
     const lugar = val('modoLugarMayorExt');
-    return `${SolicitanteMay()} indica haber adquirido la posesión material del inmueble a regularizar en virtud de Título Aparente de Contrato de Compraventa de Cuotas de Dominio, celebrado con fecha ${fechaProsa(val('modoFecha'))} ante Notario Público ${blank(val('modoNotario'))}, con repertorio N° ${blank(val('modoRepertorio'))}. En virtud de dicho instrumento, ${blank(val('modoContraparte'))} vende, cede y transfiere ${alALa()} el total de las acciones, derechos, partes o cuotas de dominio que a la parte vendedora corresponda o pueda corresponderle${lugar? ` sobre el inmueble ubicado en ${lugar}`:''}, del cual forma parte el retazo objeto de este procedimiento, equivalente a un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos del inmueble a mayor extensión.`;
+    return `${SolicitanteMay()} indica haber adquirido la posesión material del inmueble a regularizar en virtud de Título Aparente de Contrato de Compraventa de Cuotas de Dominio, celebrado con fecha ${fechaProsa(val('modoFecha'))} ante la Notaría Pública de ${blank(val('modoNotario'))}, con repertorio N° ${blank(val('modoRepertorio'))}. En virtud de dicho instrumento, ${blank(val('modoContraparte'))} vende, cede y transfiere ${alALa()} el total de las acciones, derechos, partes o cuotas de dominio que a la parte vendedora corresponda o pueda corresponderle${lugar? ` sobre el inmueble ubicado en ${lugar}`:''}, del cual forma parte el retazo objeto de este procedimiento, equivalente a un ${blank(val('modoPorcentaje'),'____')}% de las acciones y derechos del inmueble a mayor extensión.`;
   }
   if(modo==='adjudicacion'){
     const comite = blank(val('modoComite'),'la comunidad respectiva');
@@ -1719,7 +1937,7 @@ function textoModoAdquisicion(){
     return `${SolicitanteMay()} funda su pretensión en la calidad de heredero(a) de la sucesión de ${blank(val('modoContraparte'))}, cuya Inscripción Especial de Herencia rola a fojas ${fojas}, N° ${numInsc} del año ${anioInsc} en el Conservador de Bienes Raíces de ${cbr}. Se acompaña un documento de "Autorización" con fecha ${fechaProsa(val('modoFecha'))}, suscrito por los demás herederos y copropietarios, quienes reconocen que ${solicitanteMin()} detenta la posesión material exclusiva sobre el inmueble. Estos antecedentes constituyen, en base al Art. 3° del D.L. 2695, un título aparente idóneo para presumir la continuidad de la posesión en los términos del Artículo 3° inciso 2° de la ley.`;
   }
   if(modo==='conyugal'){
-    return `${SolicitanteMay()} ampara su posesión en Escritura Pública de Liquidación de Bienes en Sociedad Conyugal, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la notaría de ${blank(val('modoNotario'))}, donde ${elLa()} requirente se adjudica de la disolución de la sociedad conyugal conformada con ${blank(val('modoContraparte'))}, el ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca.`;
+    return `${SolicitanteMay()} ampara su posesión en Escritura Pública de Liquidación de Bienes en Sociedad Conyugal, celebrada con fecha ${fechaProsa(val('modoFecha'))} en la Notaría Pública de ${blank(val('modoNotario'))}, donde ${elLa()} requirente se adjudica de la disolución de la sociedad conyugal conformada con ${blank(val('modoContraparte'))}, el ${blank(val('modoPorcentaje'),'____')}% de los derechos de dominio que a ellos les corresponde sobre el inmueble a mayor extensión que ampara la propiedad objeto del procedimiento administrativo que nos convoca.`;
   }
   if(modo==='privado'){
     return `${SolicitanteMay()} ampara su posesión en documento privado de venta de terreno, donde se declara por parte de ${blank(val('modoContraparte'))} que vende, cede y transfiere ${alALa()} un retazo de aproximadamente ${blank(val('superficie'),'____')} metros cuadrados, cuya entrega material se efectuó el ${fechaProsa(val('modoFecha'))}. Al respecto, se acompañan al expediente fotografías que acreditan actos posesorios, tales como ${blank(val('modoActos'),'cercos y mantención del predio')}.`;
@@ -1918,7 +2136,7 @@ function partesInforme(){
 
 1.- Resultado del Análisis Jurídico: Sí es posible aplicar el procedimiento establecido en el D.L. N°2695/79.
 
-2.- ${g('El solicitante es don','La solicitante es doña')} ${upper(d.nombre)}, C.I. N° ${d.rut}.
+2.- ${g('El solicitante es','La solicitante es')} ${DONDONA()} ${upper(d.nombre)}, C.I. N° ${d.rut}.
 
 3.- Según se ha comprobado con las diligencias e Informe Técnico, la solicitud de regularización se refiere a un inmueble ${d.calidadBien}, ${d.tipoBien}, ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, con una superficie aproximada de ${d.superficieTexto}.
 
@@ -1956,7 +2174,7 @@ Luego, de acuerdo a lo expuesto con anterioridad, procede, en un principio, la r
 
 1.- Resultado del Análisis Jurídico: No es posible aplicar el procedimiento establecido en el D.L. N°2695/79.
 
-2.- ${g('El solicitante es don','La solicitante es doña')} ${upper(d.nombre)}, C.I. N° ${d.rut}.
+2.- ${g('El solicitante es','La solicitante es')} ${DONDONA()} ${upper(d.nombre)}, C.I. N° ${d.rut}.
 
 3.- La solicitud de regularización se refiere a un inmueble ${d.calidadBien.toLowerCase()} ${d.tipoBien} ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, con una superficie aproximada de ${d.superficieTexto}.
 
@@ -2013,7 +2231,7 @@ ${visto}
 
 CONSIDERANDO:
 
-1.- Que, ${donDona()} ${upper(d.nombre)}, con fecha ${fechaProsa(d.fechaSolicitud)}, presentó ante el Ministerio de Bienes Nacionales solicitud para acceder al trámite de regularización de la posesión de la propiedad ubicada en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}.
+1.- Que, ${DONDONA()} ${upper(d.nombre)}, con fecha ${fechaProsa(d.fechaSolicitud)}, presentó ante el Ministerio de Bienes Nacionales solicitud para acceder al trámite de regularización de la posesión de la propiedad ubicada en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}.
 
 2.- Que, los antecedentes ${g('del solicitante','de la solicitante')} y del inmueble fueron analizados jurídicamente.
 
@@ -2023,7 +2241,7 @@ CONSIDERANDO:
 
 RESUELVO:
 
-1.- Acójase la solicitud de regularización presentada por ${donDona()} ${upper(d.nombre)}, respecto del inmueble ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, en virtud de lo dispuesto en el artículo 10 del Decreto Ley N° 2.695/79. Procédase a los trámites y gestiones necesarias para darle curso progresivo al procedimiento solicitado.
+1.- Acójase la solicitud de regularización presentada por ${DONDONA()} ${upper(d.nombre)}, respecto del inmueble ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, en virtud de lo dispuesto en el artículo 10 del Decreto Ley N° 2.695/79. Procédase a los trámites y gestiones necesarias para darle curso progresivo al procedimiento solicitado.
 
 2.- Notifíquese ${alALa()} la presente resolución por carta certificada al domicilio que registra en estos autos administrativos.
 
@@ -2048,7 +2266,7 @@ ${visto}
 
 CONSIDERANDO:
 
-1.- Que, ${donDona()} ${upper(d.nombre)}, con fecha ${fechaProsa(d.fechaSolicitud)}, presentó ante el Ministerio de Bienes Nacionales solicitud para acceder al trámite de regularización de la posesión de la propiedad ubicada en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}.
+1.- Que, ${DONDONA()} ${upper(d.nombre)}, con fecha ${fechaProsa(d.fechaSolicitud)}, presentó ante el Ministerio de Bienes Nacionales solicitud para acceder al trámite de regularización de la posesión de la propiedad ubicada en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}.
 
 2.- Que, los antecedentes ${g('del solicitante','de la solicitante')} y del inmueble fueron analizados jurídicamente por la Unidad de Regularización de esta Secretaría Regional.
 
@@ -2060,7 +2278,7 @@ ${textoMotivos()}
 
 RESUELVO:
 
-1.- Deniéguese la solicitud de regularización presentada por ${donDona()} ${upper(d.nombre)} respecto del inmueble ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, y ordénese su archivo, en virtud de lo dispuesto en los artículos 2°, 4°, 5°, 11° y 13° del D.L. N° 2695, de 1979, en relación con el Artículo 925° del Código Civil y demás normas aplicables al caso en concreto.
+1.- Deniéguese la solicitud de regularización presentada por ${DONDONA()} ${upper(d.nombre)} respecto del inmueble ubicado en ${d.ubicacion}, Comuna de ${d.comuna}, Provincia de ${d.provincia}, Región ${d.region}, y ordénese su archivo, en virtud de lo dispuesto en los artículos 2°, 4°, 5°, 11° y 13° del D.L. N° 2695, de 1979, en relación con el Artículo 925° del Código Civil y demás normas aplicables al caso en concreto.
 
 2.- Notifíquese ${alALa()} la presente resolución por carta certificada al domicilio que registra en estos antecedentes administrativos.
 
@@ -2092,8 +2310,8 @@ function partesNotificacion(){
   const fecha = fechaCorta(d.fecha);
 
   const materia = acoge
-    ? `Acoge solicitud de ${donDona()} ${upper(d.nombre)}.`
-    : `Deniega solicitud de ${donDona()} ${upper(d.nombre)}.`;
+    ? `Acoge solicitud de ${DONDONA()} ${upper(d.nombre)}.`
+    : `Deniega solicitud de ${DONDONA()} ${upper(d.nombre)}.`;
 
   const de = `SECRETARIO REGIONAL MINISTERIAL DE BIENES NACIONALES${sufijoS} REGIÓN ${upper(d.region)}.`;
   const a = `${senorSenora()} ${upper(d.nombre)}\n${direccion}`;
@@ -2141,7 +2359,15 @@ function activeMainTab(){
   return btn ? btn.dataset.tab : 'informe';
 }
 
-function generar(){
+/* generar({conservarEdicion:true}) mantiene el texto que el usuario haya
+   escrito a mano en la vista previa (se usa al cambiar de pestaña y al abrir
+   la página). Sin ese parámetro —es decir, cada vez que se modifica CUALQUIER
+   dato del formulario— el documento se vuelve a armar completo, de modo que el
+   cambio se vea siempre reflejado en la vista previa y en los campos para
+   copiar. La versión editada a mano no se pierde: queda respaldada y se puede
+   recuperar con el botón "Recuperar mi texto editado". */
+function generar(opts){
+  opts = opts || {};
   guardarTodo();   // cada regeneración deja el trabajo guardado en el navegador
   const tab = activeMainTab();
   if(tab==='oficios') return;
@@ -2153,12 +2379,17 @@ function generar(){
 
   state.lastPartes = partes;
 
-  /* Si hay ediciones manuales guardadas para esta pestaña, se conservan;
-     de lo contrario se usa el texto recién generado desde el formulario. */
-  let texto;
-  if(state.previewDirty[tab] && state.previewText[tab]){
+  const hayEdicion = !!(state.previewDirty[tab] && state.previewText[tab]);
+  let texto, seRehizo = false;
+
+  if(opts.conservarEdicion && hayEdicion){
     texto = state.previewText[tab];
   } else {
+    if(hayEdicion && state.previewText[tab] !== autoTexto){
+      state.previewBackup[tab] = state.previewText[tab];   // respaldo recuperable
+      seRehizo = true;
+    }
+    state.previewDirty[tab] = false;
     texto = autoTexto;
     state.previewText[tab] = texto;
   }
@@ -2166,14 +2397,42 @@ function generar(){
   q('preview').value = texto;
   renderFieldsGrid(partes);
   syncFieldsFromPreview();
+  actualizarBotonRecuperar();
+  actualizarAvisoMotivosResolucion();
 
   const nombre = val('nombre');
-  const avisoEdicion = state.previewDirty[tab]
-    ? ' · <b>edición manual activa</b> (tus cambios en la vista previa se conservan al cambiar de pestaña)'
-    : '';
+  let aviso = '';
+  if(state.previewDirty[tab]){
+    aviso = ' · <b>edición manual activa</b> (se conserva al cambiar de pestaña)';
+  } else if(seRehizo){
+    aviso = ' · se rehízo con los datos del formulario · <b>tu texto editado quedó respaldado</b> (botón ↺ Recuperar)';
+  } else if(state.previewBackup[tab]){
+    aviso = ' · hay un texto editado respaldado (botón ↺ Recuperar)';
+  }
   q('statusLine').innerHTML = nombre
-    ? `Documento listo para <b>${nombre}</b> · género: ${state.genero==='F'?'femenino':'masculino'}${avisoEdicion} · edítalo libremente antes de copiar.`
-    : `Ingresa el nombre ${g('del solicitante','de la solicitante')} para personalizar el documento.`;
+    ? `Documento listo para <b>${escapeHtml(nombre)}</b> · género: ${state.genero==='F'?'femenino':'masculino'}${aviso} · edítalo libremente antes de copiar.`
+    : `Ingresa el nombre ${g('del solicitante','de la solicitante')} para personalizar el documento.${aviso}`;
+}
+
+/* Muestra u oculta el botón que devuelve el texto editado a mano. */
+function actualizarBotonRecuperar(){
+  const btn = q('btnRecuperarEdicion');
+  if(!btn) return;
+  const tab = activeMainTab();
+  const hay = !!(state.previewBackup && state.previewBackup[tab]);
+  btn.style.display = hay ? 'inline-block' : 'none';
+}
+
+function recuperarEdicion(){
+  const tab = activeMainTab();
+  const texto = state.previewBackup && state.previewBackup[tab];
+  if(!texto) return;
+  q('preview').value = texto;
+  state.previewText[tab] = texto;
+  state.previewDirty[tab] = true;
+  syncFieldsFromPreview();
+  guardarTodo();
+  flashStatus('Se recuperó tu texto editado ✓ (se conserva hasta que cambies un dato del formulario)');
 }
 
 /* Marca la pestaña actual como "regenerar desde el formulario",
@@ -3167,7 +3426,8 @@ function guardarAhora(){
         motivosOrden: state.motivosOrden,
         masivoFilas: state.masivoFilas,
         previewDirty: state.previewDirty,
-        previewText: state.previewText
+        previewText: state.previewText,
+        previewBackup: state.previewBackup
       }
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(datos));
@@ -3219,6 +3479,7 @@ function restaurarTodo(){
     if(Array.isArray(est.masivoFilas)) state.masivoFilas = est.masivoFilas;
     if(est.previewDirty) state.previewDirty = est.previewDirty;
     if(est.previewText) state.previewText = est.previewText;
+    if(est.previewBackup) state.previewBackup = est.previewBackup;
 
     // 2) el modo de adquisición crea campos dinámicos: primero se fija el
     //    modo, luego se dibujan sus campos y sólo después se rellenan.
@@ -3270,7 +3531,8 @@ function restaurarTodo(){
     document.querySelectorAll('.uni-sup').forEach(sp=>{ sp.textContent = etiquetaUnidad(unidadCalc()); });
     actualizarEquivalenciaSup();
 
-    // 5) los conservadores usan desplegable + campo libre
+    // 5) región y conservadores usan desplegable + campo libre
+    sincronizarRegionSelect();
     sincronizarCbrSelect('cbrSelect','cbr');
     sincronizarCbrSelect('ofCbrSelect','ofCbr');
     if(q('postulanteSelect') && q('postulante')){
@@ -3330,17 +3592,13 @@ function borrarGuardado(){
    INICIALIZACIÓN
    ============================================================ */
 poblarComunas();
+poblarRegionSelect();
+sincronizarRegionSelect();
 poblarCbrSelect('cbrSelect');
 
 /* Los formateadores se registran ANTES de generar(), para que el documento
    se arme siempre con el valor ya formateado. */
 initFormatters();
-
-document.querySelectorAll('#sidePanel input, #sidePanel select').forEach(el=>{
-  el.addEventListener('input', generar);
-  el.addEventListener('change', generar);
-});
-q('obsExtra').addEventListener('input', generar);
 
 renderModoSub();
 renderPresuntos();
@@ -3352,20 +3610,64 @@ const habiaBorrador = restaurarTodo();
 renderOrdenMotivos();
 initSuperficies();
 calcular();
-generar();
+generar({conservarEdicion:true});
 
-/* Cualquier cambio en cualquier campo dispara el guardado automático. Se
-   escucha en toda la página (con captura) para incluir también los campos que
-   se crean dinámicamente: presuntos dueños, modo de adquisición y las filas
-   del oficio masivo. */
+/* ------------------------------------------------------------------
+   REACTIVIDAD TOTAL
+   Cualquier cambio en cualquier campo (del panel izquierdo, de la pestaña
+   Informe, de Resolución, de Notificación, de los motivos de rechazo, de los
+   presuntos dueños de la Circular N°3 o del modo de adquisición) se guarda y
+   se refleja de inmediato en la vista previa y en los campos para copiar,
+   incluidas las resoluciones negativas, que se redactan con los mismos datos
+   de los motivos de rechazo.
+
+   Se escucha en todo el documento —en fase de burbuja, para que los
+   formateadores de RUT, dinero y superficies ya hayan corregido el valor— y
+   así también quedan cubiertos los campos que se crean dinámicamente.
+   ------------------------------------------------------------------ */
+function esCampoEditable(el){
+  return !!el && !!el.tagName && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+}
+
+/* Campos que NO deben disparar la regeneración del documento:
+   la propia vista previa, los cuadros para copiar y la pestaña de Oficios
+   (que tiene su propia vista previa). */
+function zonaDelCampo(el){
+  if(el.id === 'preview') return 'preview';
+  if(el.closest('#fieldsGrid')) return 'copiar';
+  if(el.closest('#oficiosView')) return 'oficios';
+  return 'formulario';
+}
+
+function onCambioCampo(ev){
+  const el = ev.target;
+  if(!esCampoEditable(el)) return;
+  guardarTodo();
+  if(_restaurando) return;
+  const zona = zonaDelCampo(el);
+  if(zona === 'formulario') generar();
+  else if(zona === 'oficios') previewOficioDiferido();
+}
+
 ['input','change'].forEach(evt=>{
-  document.addEventListener(evt, (ev)=>{
-    const el = ev.target;
-    if(!el || !el.tagName) return;
-    if(!/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
-    guardarTodo();
-  }, true);
+  document.addEventListener(evt, onCambioCampo, false);
 });
+
+/* Al salir de un campo con formato automático (RUT, montos, superficies) el
+   valor puede terminar de ajustarse sin emitir "input" (por ejemplo
+   14519551 → $14.519.551); si efectivamente cambió, se regenera para que el
+   documento muestre el número ya formateado. */
+document.addEventListener('focusin', (ev)=>{
+  const el = ev.target;
+  if(esCampoEditable(el)) el._valorAlEntrar = el.value;
+}, false);
+document.addEventListener('focusout', (ev)=>{
+  const el = ev.target;
+  if(!esCampoEditable(el) || !el.dataset || !el.dataset.fmt) return;
+  if(el._valorAlEntrar === el.value) return;
+  el._valorAlEntrar = el.value;
+  if(zonaDelCampo(el) === 'formulario') generar();
+}, false);
 /* Y también al cerrar o recargar la página, sin esperar el temporizador. */
 window.addEventListener('beforeunload', guardarAhora);
 
