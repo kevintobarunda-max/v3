@@ -1876,11 +1876,12 @@ function ubicacionPresunto(p){
   const comuna = (p.comuna||'').trim();
   if(!comuna) return '';
   const region = regionPresunto(p);
-  /* En la región de la sede basta con la comuna ("de Talca", "de Curicó"); fuera
-     de ella se agrega la región ("de Puente Alto, Región Metropolitana de
-     Santiago"). */
+  /* En la región de la sede basta con la comuna ("de Talca", "de Curicó"),
+     porque es la región de esta Secretaría Regional Ministerial. Fuera de ella
+     se explicita la comuna y la región ("Comuna de Puente Alto, Región
+     Metropolitana de Santiago"). */
   if(region === REGION_SEDE) return `, de ${comuna}`;
-  return `, de ${comuna}, Región ${region}`;
+  return `, Comuna de ${comuna}, Región ${region}`;
 }
 
 function renderPresuntos(){
