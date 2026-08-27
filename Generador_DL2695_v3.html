@@ -517,7 +517,7 @@
           <div class="calc-card" style="margin-top:10px;">
             <div>
               <div class="field">
-                <label>Avalúo Fiscal Total del rol ($)</label>
+                <label>Avalúo Fiscal Total del rol ($) <span class="hint">· se llena con el del expediente</span></label>
                 <input type="text" inputmode="numeric" id="calcAvaluoTotal" placeholder="" data-fmt="money" oninput="calcular()">
               </div>
               <div class="field">
@@ -531,12 +531,12 @@
                 </p>
               </div>
               <div class="field">
-                <label>Superficie total del rol (<span class="uni-sup">m²</span>)</label>
+                <label>Superficie total del rol (<span class="uni-sup">m²</span>) <span class="hint">· escríbela aquí</span></label>
                 <input type="text" inputmode="decimal" id="calcSupTotales" placeholder="" data-fmt="sup" oninput="onCalcSupInput('calcSupTotales','totales')">
                 <p class="hint sup-eq" id="calcEqTotales">&nbsp;</p>
               </div>
               <div class="field">
-                <label>Superficie que se pretende regularizar (<span class="uni-sup">m²</span>)</label>
+                <label>Superficie que se pretende regularizar (<span class="uni-sup">m²</span>) <span class="hint">· se llena con la del expediente</span></label>
                 <input type="text" inputmode="decimal" id="calcSupReg" placeholder="" data-fmt="sup" oninput="onCalcSupInput('calcSupReg','reg')">
                 <p class="hint sup-eq" id="calcEqReg">&nbsp;</p>
               </div>
@@ -555,7 +555,7 @@
               </div>
               <p class="hint">UTM de referencia: agosto 2026 = $71.649. Verifica el valor vigente en sii.cl.</p>
               <div class="btn-row">
-                <button type="button" class="btn btn-primary btn-sm" onclick="usarEnFormulario()">Usar estos valores en el documento →</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="usarEnFormulario()">Llevar el avalúo proporcional al documento →</button>
               </div>
             </div>
             <div class="calc-result">
@@ -3821,13 +3821,62 @@ function initSuperficies(){
   });
   state.supUnidadAnterior = unidadSup();
 
-  const u = unidadCalc();
-  document.querySelectorAll('.uni-sup').forEach(sp=>{ sp.textContent = etiquetaUnidad(u); });
-  q('calcSupTotales').placeholder = (u === 'ha') ? '0,49'   : '4.900';
-  q('calcSupReg').placeholder     = (u === 'ha') ? '0,0181' : '180,9';
+  document.querySelectorAll('.uni-sup').forEach(sp=>{ sp.textContent = etiquetaUnidad(unidadCalc()); });
 
   q('superficie').addEventListener('input', actualizarEquivalenciaSup);
   actualizarEquivalenciaSup();
+
+  /* Los datos del expediente alimentan la calculadora en cuanto se escriben. Se
+     escuchan sólo estos campos (no todo el panel), porque la calculadora vive
+     también en el panel izquierdo y si no, al escribir en ella se sobrescribiría
+     a sí misma. */
+  ['superficie','supUnidad','avaluoTotal','tipoBien'].forEach(id=>{
+    const el = q(id);
+    if(!el) return;
+    ['input','change'].forEach(evt=> el.addEventListener(evt, ()=>volcarEnCalculadora()));
+  });
+  /* Al arrancar sólo se rellena: así, si se recupera un borrador en que la
+     calculadora tenía datos y el expediente no, no se pierde nada. */
+  volcarEnCalculadora(true);
+}
+
+/* ------------------------------------------------------------------
+   Lo que se escribe en el expediente se refleja de inmediato en la
+   calculadora de avalúo proporcional, para no escribir dos veces lo mismo:
+
+     Superficie aproximada   -> Superficie que se pretende regularizar
+     Avalúo Fiscal Total     -> Avalúo Fiscal Total del rol
+     Tipo de bien            -> Tipo de inmueble
+
+   Queda por escribir sólo la superficie total del rol, que es el único dato que
+   la calculadora necesita y que no está en el expediente.
+   ------------------------------------------------------------------ */
+function volcarEnCalculadora(soloRellenar){
+  const campoReg = q('calcSupReg');
+  if(campoReg){
+    const m2 = superficieEnM2();
+    if(m2 !== null){
+      state.calcSup.reg = m2;
+      /* se muestra en la unidad que tenga elegida la calculadora */
+      campoReg.value = numeroALocal(unidadCalc() === 'ha' ? m2 / M2_POR_HA : m2);
+    } else if(!soloRellenar){
+      state.calcSup.reg = null;
+      campoReg.value = '';
+    }
+  }
+
+  const campoAvaluo = q('calcAvaluoTotal');
+  if(campoAvaluo){
+    const av = val('avaluoTotal');
+    if(av) campoAvaluo.value = formatMoneyValue(av);
+    else if(!soloRellenar) campoAvaluo.value = '';
+  }
+
+  const campoTipo = q('calcTipo');
+  if(campoTipo) campoTipo.value = (val('tipoBien') === 'Urbano') ? 'urbano' : 'rural';
+
+  actualizarEquivalencias();
+  calcular();
 }
 
 /* ---------- superficie de la calculadora ---------- */
@@ -3857,10 +3906,8 @@ function onCalcUnidadChange(){
       : numeroALocal(u === 'ha' ? m2 / M2_POR_HA : m2);
   });
 
-  // etiquetas y textos de ayuda siguen a la unidad elegida
+  // las etiquetas de unidad siguen a la unidad elegida
   document.querySelectorAll('.uni-sup').forEach(sp=>{ sp.textContent = etiquetaUnidad(u); });
-  q('calcSupTotales').placeholder = (u === 'ha') ? '0,49' : '4.900';
-  q('calcSupReg').placeholder     = (u === 'ha') ? '0,0181' : '180,9';
 
   calcular();
 }
