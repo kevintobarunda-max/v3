@@ -2076,9 +2076,9 @@ function opcionesComunaPresunto(region, seleccion){
 
 /* Cómo se redacta la ubicación del presunto dueño en el texto de la Circular. */
 function ubicacionPresunto(p){
-  const comuna = (p.comuna||'').trim();
+  const comuna = limpiar(p.comuna);
   if(!comuna) return '';
-  const region = regionPresunto(p);
+  const region = limpiar(regionPresunto(p));
   /* En la región de la sede basta con la comuna ("de Talca", "de Curicó"),
      porque es la región de esta Secretaría Regional Ministerial. Fuera de ella
      se explicita la comuna y la región ("Comuna de Puente Alto, Región
@@ -2320,7 +2320,7 @@ function bloquesObservaciones(){
       const c = causanteActual();
       const tratoC = c.genero === 'F' ? 'doña' : 'don';
       const nomC = upper(blank(c.nombre,'____________________'));
-      const ciC = (c.ci||'').trim();
+      const ciC = limpiar(c.ci);
       const causanteTxt = `${tratoC} ${nomC}${ciC ? `, C.I. N° ${ciC}` : ''}`;
       /* de los herederos / de las herederas / del heredero / de la heredera */
       const deLosHerederos = esPlural
@@ -2430,7 +2430,22 @@ function fechaProsa(dateStr){
   return `${parseInt(d,10)} de ${meses[parseInt(m,10)-1]} de ${y}`;
 }
 
-function blank(v, fallback){ return v ? v : (fallback||'________'); }
+/* Normaliza lo que se escribe o se pega en un campo: quita los espacios de los
+   extremos, junta los espacios repetidos del interior y convierte los espacios
+   duros (los que llegan al pegar desde Word) en espacios normales.
+   Sin esto, un nombre con un espacio de más terminaba impreso como
+   "ANA SOTO , C.I. N°" o "doña  ROSA VERGARA". */
+function limpiar(v){
+  return String(v == null ? '' : v)
+    .replace(/[\u00a0\u2007\u202f]/g, ' ')   // espacios duros
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
+function blank(v, fallback){
+  const t = limpiar(v);
+  return t ? t : (fallback||'________');
+}
 
 /* ============================================================
    UI: TABS PRINCIPALES
@@ -3079,8 +3094,21 @@ function encabezadoComun(){
    REGLA IMPORTANTE: el texto de un bloque nunca debe contener una línea en
    blanco, porque los bloques se unen con '\n\n'. sanBloque() lo garantiza.
    ------------------------------------------------------------------ */
+/* Además de dejar el bloque sin líneas en blanco, se corrigen los espacios que
+   se cuelan al escribir o al pegar datos: espacios repetidos y espacios antes de
+   una coma, un punto y coma, dos puntos o un punto. Es la red de seguridad para
+   TODOS los documentos, no sólo para el párrafo de la Circular N°3.
+   Se cuida no tocar los saltos de línea, que sí son intencionales (cabecera,
+   firma, distribución). */
 function sanBloque(t){
-  return String(t == null ? '' : t).replace(/\n{2,}/g, '\n').trim();
+  return String(t == null ? '' : t)
+    .replace(/[\u00a0\u2007\u202f]/g, ' ')   // espacios duros pegados desde Word
+    .replace(/\n{2,}/g, '\n')                // el bloque no lleva líneas en blanco
+    .replace(/[ \t]{2,}/g, ' ')              // espacios repetidos
+    .replace(/[ \t]+([,;:.])/g, '$1')        // "SOTO , C.I." -> "SOTO, C.I."
+    .replace(/[ \t]+\n/g, '\n')              // espacios al final de una línea
+    .replace(/\n[ \t]+/g, '\n')              // espacios al comenzar una línea
+    .trim();
 }
 function bl(id, texto){ return {id: id, texto: sanBloque(texto)}; }
 
