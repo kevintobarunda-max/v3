@@ -5337,10 +5337,15 @@ function renderMasivoDestino(){
 /* Línea "A:" de cada una de las tres instituciones que se consultan por la
    situación urbanística del inmueble. Se usa tanto para el oficio que se está
    viendo como para el despacho de los tres a la vez. */
+/* Se copian LETRA POR LETRA de la línea "A:" de las plantillas Word de cada
+   institución, para que el oficio masivo y el individual se dirijan al
+   destinatario exactamente igual. Antes esta función abreviaba por su cuenta
+   ("SR. SECRETARIO…", y en la DOM sin tratamiento alguno), de modo que los
+   oficios masivos salían con un encabezado distinto al de los individuales. */
 function destinatarioInstitucion(inst, comunaDom){
-  if(inst === 'minvu')  return 'SR. SECRETARIO REGIONAL MINISTERIAL DE VIVIENDA Y URBANISMO, REGIÓN DEL MAULE.';
-  if(inst === 'serviu') return 'SR. DIRECTOR SERVICIO VIVIENDA Y URBANISMO, REGIÓN DEL MAULE.';
-  return 'DIRECTOR DE OBRAS ILUSTRE MUNICIPALIDAD DE ' + upper(blank(comunaDom,'____________')) + '.';
+  if(inst === 'minvu')  return 'SR. (A). SECRETARIO (A) REGIONAL MINISTERIAL DE VIVIENDA Y URBANISMO, REGIÓN DEL MAULE.';
+  if(inst === 'serviu') return 'SR. (A). DIRECTOR (A) SERVICIO VIVIENDA Y URBANISMO, REGIÓN DEL MAULE.';
+  return 'SR. (A) DIRECTOR (A) DE OBRAS ILUSTRE MUNICIPALIDAD DE ' + upper(blank(comunaDom,'____________')) + '.';
 }
 
 // Texto exacto de la línea "A:" del oficio, según el destinatario elegido.
@@ -5628,6 +5633,31 @@ function datosOficioActuales(){
   };
 }
 
+/* Erratas de digitación que arrastran las plantillas Word incrustadas de los
+   oficios individuales (DOM / MINVU / SERVIU). Se corrigen en tiempo de
+   ejecución, igual que se hace con la abreviatura de superficie, para no tener
+   que reescribir el Base64 del DOCX: así el arreglo queda a la vista y se puede
+   revisar en el código.
+
+   La plantilla del oficio masivo ya venía con varias de estas correcciones
+   hechas, de modo que los tres oficios individuales salían con faltas que el
+   masivo no tenía. Esto los deja a la par.
+
+   "E472S30" es la letra S en lugar del número 5 en el número del dictamen; el
+   propio documento lo escribe bien (E472530) tres párrafos antes. */
+const OFICIO_ERRATAS = [
+  ['AI respecto',                'Al respecto'],
+  ['que puedo generar',          'que pueda generar'],
+  ['N\u00B042.084 de2017',       'N\u00B042.084 de 2017'],
+  ['contemple Dict\u00E1menes',  'complementa Dict\u00E1menes'],
+  ['N\u00B0s11.662',             'N\u00B0s 11.662'],
+  ['Decreto Ley N\u00B02,695',   'Decreto Ley N\u00B02.695'],
+  ['E472S30',                    'E472530'],
+  /* El masivo escribe "N°SE07-{ord_n}" y los individuales "N°SE07- {ord_n}",
+     que deja un espacio suelto tras el guion. Se unifica. */
+  ['N\u00B0SE07- ',              'N\u00B0SE07-']
+];
+
 // Carga la plantilla Word del tipo de oficio, reemplaza los tokens {campo}
 // con los datos actuales y devuelve el XML (word/document.xml) ya relleno,
 // junto con el zip completo (útil para generar el .docx descargable).
@@ -5636,6 +5666,10 @@ async function construirOficioXml(tipo, datos){
   const zip = await JSZip.loadAsync(b64, {base64:true});
   const docPath = 'word/document.xml';
   let xml = await zip.file(docPath).async('string');
+
+  /* Se corrigen las erratas de la plantilla ANTES de rellenar los datos, para
+     no tocar nunca lo que escribió el usuario. */
+  OFICIO_ERRATAS.forEach(([malo, bueno])=>{ xml = xml.split(malo).join(bueno); });
 
   // Oficio masivo: la plantilla trae UNA fila modelo en la tabla; aquí se
   // repite tantas veces como expedientes haya.
