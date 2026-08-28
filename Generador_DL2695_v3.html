@@ -366,7 +366,8 @@
 </style>
 </head>
 <body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<!-- Sin librerías externas: el ZIP de los .docx se arma con la compresión que
+     trae el propio navegador, así el archivo funciona sin conexión. -->
 
 <header class="app">
   <div class="header-inner">
@@ -5676,6 +5677,189 @@ function datosOficioActuales(){
   };
 }
 
+/* ============================================================
+   ZIP PROPIO — lectura y escritura
+   Un .docx es un ZIP, así que para rellenar las plantillas Word hay que abrirlo
+   y volver a cerrarlo. Antes esto se hacía con JSZip traído de un CDN, lo que
+   dejaba toda la generación de oficios inservible sin internet: justo lo que
+   ocurre en una oficina con la red restringida. Aquí va lo mínimo necesario,
+   apoyado en la compresión que el propio navegador ya incluye
+   (CompressionStream 'deflate-raw'), de modo que el archivo se basta a sí mismo.
+   ============================================================ */
+
+const MIME_DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+/* Hace falta 'deflate-raw', que es el formato que usa el ZIP. Disponible en
+   Chrome/Edge 103+, Firefox 113+ y Safari 16.4+. */
+function soportaZip(){
+  return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+}
+
+const CRC32_TABLA = (()=>{
+  const t = new Uint32Array(256);
+  for(let n = 0; n < 256; n++){
+    let c = n;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes){
+  let c = 0xFFFFFFFF;
+  for(let i = 0; i < bytes.length; i++) c = CRC32_TABLA[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+async function pasarPorStream(bytes, stream){
+  const w = stream.writable.getWriter();
+  w.write(bytes);
+  w.close();
+  return new Uint8Array(await new Response(stream.readable).arrayBuffer());
+}
+const inflarRaw = (bytes)=> pasarPorStream(bytes, new DecompressionStream('deflate-raw'));
+const deflarRaw = (bytes)=> pasarPorStream(bytes, new CompressionStream('deflate-raw'));
+
+function base64ABytes(b64){
+  const limpio = b64.replace(/\s+/g,'');
+  const bin = atob(limpio + '='.repeat((4 - limpio.length % 4) % 4));
+  const out = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+const leerU16 = (b,o)=> b[o] | (b[o+1] << 8);
+const leerU32 = (b,o)=> ((b[o] | (b[o+1] << 8) | (b[o+2] << 16) | (b[o+3] << 24)) >>> 0);
+
+/* Devuelve las entradas del ZIP con sus datos TAL COMO ESTÁN (aún comprimidos).
+   Así, al volver a escribir el .docx, las partes que no se tocan se copian
+   íntegras y no hay riesgo de alterar imágenes, estilos ni el tema. */
+async function zipLeerBase64(b64){
+  const bytes = base64ABytes(b64);
+
+  // El "fin del directorio central" se busca desde el final del archivo.
+  let eocd = -1;
+  const tope = Math.max(0, bytes.length - 22 - 65535);
+  for(let i = bytes.length - 22; i >= tope; i--){
+    if(leerU32(bytes, i) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error('La plantilla no es un ZIP válido.');
+
+  const total = leerU16(bytes, eocd + 10);
+  let off = leerU32(bytes, eocd + 16);
+  const decoder = new TextDecoder('utf-8');
+  const entradas = [];
+
+  for(let n = 0; n < total; n++){
+    if(leerU32(bytes, off) !== 0x02014b50) throw new Error('Directorio central del ZIP corrupto.');
+    const metodo     = leerU16(bytes, off + 10);
+    const crc        = leerU32(bytes, off + 16);
+    const tamComp    = leerU32(bytes, off + 20);
+    const tamOrig    = leerU32(bytes, off + 24);
+    const largoNom   = leerU16(bytes, off + 28);
+    const largoExtra = leerU16(bytes, off + 30);
+    const largoCom   = leerU16(bytes, off + 32);
+    const local      = leerU32(bytes, off + 42);
+    const nombre     = decoder.decode(bytes.subarray(off + 46, off + 46 + largoNom));
+
+    // Los datos empiezan después de la cabecera local, que tiene su propio
+    // nombre y campo extra, de largos distintos a los del directorio central.
+    const ini = local + 30 + leerU16(bytes, local + 26) + leerU16(bytes, local + 28);
+    entradas.push({nombre, metodo, crc, tamOrig, datos: bytes.subarray(ini, ini + tamComp)});
+
+    off += 46 + largoNom + largoExtra + largoCom;
+  }
+  return entradas;
+}
+
+async function zipTexto(entradas, nombre){
+  const e = entradas.find(x => x.nombre === nombre);
+  if(!e) throw new Error('El documento no contiene ' + nombre + '.');
+  const crudo = (e.metodo === 8) ? await inflarRaw(e.datos) : e.datos;
+  return new TextDecoder('utf-8').decode(crudo);
+}
+
+/* Prepara una entrada nueva. Sólo se comprime si de verdad ocupa menos: en
+   archivos ya comprimidos (una imagen) el deflate puede agrandarlos. */
+async function zipEntrada(nombre, bytes){
+  const comp = await deflarRaw(bytes);
+  const conviene = comp.length < bytes.length;
+  return {
+    nombre,
+    metodo: conviene ? 8 : 0,
+    crc: crc32(bytes),
+    tamOrig: bytes.length,
+    datos: conviene ? comp : bytes
+  };
+}
+const zipEntradaTexto = (nombre, texto)=> zipEntrada(nombre, new TextEncoder().encode(texto));
+const zipEntradaBlob  = async (nombre, blob)=> zipEntrada(nombre, new Uint8Array(await blob.arrayBuffer()));
+
+async function zipEscribir(entradas, mime){
+  const codificador = new TextEncoder();
+  const partes = [];
+  const central = [];
+  let offset = 0;
+
+  entradas.forEach(e=>{
+    const nombre = codificador.encode(e.nombre);
+
+    const local = new Uint8Array(30 + nombre.length);
+    const vl = new DataView(local.buffer);
+    vl.setUint32(0, 0x04034b50, true);   // firma
+    vl.setUint16(4, 20, true);           // versión necesaria
+    vl.setUint16(6, 0x0800, true);       // bit 11: nombres en UTF-8
+    vl.setUint16(8, e.metodo, true);
+    vl.setUint16(10, 0, true);           // hora y fecha fijas: los documentos
+    vl.setUint16(12, 0x2100, true);      // se identifican por su contenido
+    vl.setUint32(14, e.crc, true);
+    vl.setUint32(18, e.datos.length, true);
+    vl.setUint32(22, e.tamOrig, true);
+    vl.setUint16(26, nombre.length, true);
+    local.set(nombre, 30);
+    partes.push(local, e.datos);
+
+    const cd = new Uint8Array(46 + nombre.length);
+    const vc = new DataView(cd.buffer);
+    vc.setUint32(0, 0x02014b50, true);
+    vc.setUint16(4, 20, true);
+    vc.setUint16(6, 20, true);
+    vc.setUint16(8, 0x0800, true);
+    vc.setUint16(10, e.metodo, true);
+    vc.setUint16(12, 0, true);
+    vc.setUint16(14, 0x2100, true);
+    vc.setUint32(16, e.crc, true);
+    vc.setUint32(20, e.datos.length, true);
+    vc.setUint32(24, e.tamOrig, true);
+    vc.setUint16(28, nombre.length, true);
+    vc.setUint32(42, offset, true);
+    cd.set(nombre, 46);
+    central.push(cd);
+
+    offset += local.length + e.datos.length;
+  });
+
+  const tamCentral = central.reduce((s,c)=> s + c.length, 0);
+  const fin = new Uint8Array(22);
+  const vf = new DataView(fin.buffer);
+  vf.setUint32(0, 0x06054b50, true);
+  vf.setUint16(8, entradas.length, true);
+  vf.setUint16(10, entradas.length, true);
+  vf.setUint32(12, tamCentral, true);
+  vf.setUint32(16, offset, true);
+
+  return new Blob(partes.concat(central, [fin]), {type: mime});
+}
+
+/* Devuelve el .docx con una de sus partes reemplazada, conservando las demás
+   exactamente como venían en la plantilla. */
+async function blobDocx(entradas, ruta, contenido){
+  const nueva = await zipEntradaTexto(ruta, contenido);
+  const salida = entradas.map(e => e.nombre === ruta ? nueva : e);
+  if(!entradas.some(e => e.nombre === ruta)) salida.push(nueva);
+  return zipEscribir(salida, MIME_DOCX);
+}
+
 /* Erratas de digitación que arrastran las plantillas Word incrustadas de los
    oficios individuales (DOM / MINVU / SERVIU). Se corrigen en tiempo de
    ejecución, igual que se hace con la abreviatura de superficie, para no tener
@@ -5705,14 +5889,14 @@ const OFICIO_ERRATAS = [
 // con los datos actuales y devuelve el XML (word/document.xml) ya relleno,
 // junto con el zip completo (útil para generar el .docx descargable).
 async function construirOficioXml(tipo, datos){
-  const b64 = OFICIO_TEMPLATES[tipo];
-  const zip = await JSZip.loadAsync(b64, {base64:true});
+  const entradas = await zipLeerBase64(OFICIO_TEMPLATES[tipo]);
   const docPath = 'word/document.xml';
-  let xml = await zip.file(docPath).async('string');
+  let xml = await zipTexto(entradas, docPath);
 
   /* Se corrigen las erratas de la plantilla ANTES de rellenar los datos, para
      no tocar nunca lo que escribió el usuario. */
   OFICIO_ERRATAS.forEach(([malo, bueno])=>{ xml = xml.split(malo).join(bueno); });
+  xml = ajustarParaDom(xml, vaALaDom(tipo, datos));
 
   // Oficio masivo: la plantilla trae UNA fila modelo en la tabla; aquí se
   // repite tantas veces como expedientes haya.
@@ -5728,7 +5912,28 @@ async function construirOficioXml(tipo, datos){
   // tiempo de ejecución para que tanto la vista previa como el DOCX usen mt2.
   xml = xml.split('m\u00B2').join(ETIQUETA_SUPERFICIE);
 
-  return {zip, docPath, xml};
+  return {entradas, docPath, xml};
+}
+
+/* ¿Este oficio va dirigido a una Dirección de Obras? En los oficios
+   individuales lo dice el tipo de plantilla; en el masivo, el destinatario
+   elegido, que siempre se arma con destinatarioInstitucion(). */
+function vaALaDom(tipo, datos){
+  if(tipo === 'dom') return true;
+  if(tipo !== 'masivo') return false;
+  return String((datos && datos.destinatario) || '').indexOf('DE OBRAS') >= 0;
+}
+
+/* El párrafo de la Ley N° 20.234 pregunta si el loteo obtuvo la recepción
+   "por parte de la Dirección de Obras Municipales respectiva". Eso está bien
+   escrito para el MINVU y el SERVIU, que informan sobre un tercero, pero cuando
+   el oficio va a la propia Dirección de Obras queda preguntándole por sí misma
+   en tercera persona. Sólo en ese caso se pasa a segunda persona. */
+function ajustarParaDom(xml, esDom){
+  if(!esDom) return xml;
+  return xml
+    .split('por parte de la Dirección de Obras Municipales respectiva')
+    .join('por parte de esa Dirección de Obras Municipales');
 }
 
 // Busca en el XML la fila (<w:tr>) que contiene el token {exp} y la clona una
@@ -5847,9 +6052,11 @@ function previewOficioDiferido(){
   _previewOficioTimer = setTimeout(generarOficioPreview, 220);
 }
 
+const AVISO_NAVEGADOR = 'Este navegador es demasiado antiguo para armar los Word. Se necesita Chrome o Edge 103+, Firefox 113+ o Safari 16.4+.';
+
 async function generarOficioPreview(){
-  if(typeof JSZip === 'undefined'){
-    q('ofStatus').textContent = 'No se pudo cargar la librería para generar la vista previa (sin conexión a internet).';
+  if(!soportaZip()){
+    q('ofStatus').textContent = AVISO_NAVEGADOR;
     return;
   }
   const tipo = val('ofTipo');
@@ -5867,8 +6074,8 @@ async function generarOficioPreview(){
 }
 
 async function descargarOficio(){
-  if(typeof JSZip === 'undefined'){
-    q('ofStatus').textContent = 'No se pudo cargar la librería para generar el Word (sin conexión a internet). Intenta nuevamente.';
+  if(!soportaZip()){
+    q('ofStatus').textContent = AVISO_NAVEGADOR;
     return;
   }
   const tipo = val('ofTipo');
@@ -5883,16 +6090,9 @@ async function descargarOficio(){
   const datos = (tipo === 'masivo') ? datosOficioMasivo() : datosOficioActuales();
 
   try{
-    const {zip, docPath, xml} = await construirOficioXml(tipo, datos);
-    zip.file(docPath, xml);
+    const {entradas, docPath, xml} = await construirOficioXml(tipo, datos);
     renderOficioXmlEnPreview(xml);
-
-    const blob = await zip.generateAsync({
-      type:'blob',
-      mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      compression:'DEFLATE',
-      compressionOptions:{level:6}
-    });
+    const blob = await blobDocx(entradas, docPath, xml);
 
     const destinoMasivo = {
       dom: 'DOM_' + (val('ofMasComuna')||'comuna'),
@@ -5955,19 +6155,13 @@ function limpiarNombreArchivo(s){
 
 /* Rellena una plantilla y devuelve el .docx listo como blob. */
 async function blobOficio(tipo, datos){
-  const {zip, docPath, xml} = await construirOficioXml(tipo, datos);
-  zip.file(docPath, xml);
-  return zip.generateAsync({
-    type:'blob',
-    mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    compression:'DEFLATE',
-    compressionOptions:{level:6}
-  });
+  const {entradas, docPath, xml} = await construirOficioXml(tipo, datos);
+  return blobDocx(entradas, docPath, xml);
 }
 
 async function descargarTrioOficios(){
-  if(typeof JSZip === 'undefined'){
-    q('ofStatus').textContent = 'No se pudo cargar la librería para generar los Word (sin conexión a internet).';
+  if(!soportaZip()){
+    q('ofStatus').textContent = AVISO_NAVEGADOR;
     return;
   }
 
@@ -5990,7 +6184,7 @@ async function descargarTrioOficios(){
   q('ofStatus').textContent = 'Generando los tres oficios…';
 
   try{
-    const paquete = new JSZip();
+    const archivos = [];
     const generados = [];
 
     for(const {inst, etiqueta, campoOrd} of TRIO_INSTITUCIONES){
@@ -6014,13 +6208,11 @@ async function descargarTrioOficios(){
         + (inst === 'dom' ? '_' + limpiarNombreArchivo(comunaDom) : '')
         + sufijo + '.docx';
 
-      paquete.file(nombre, blob);
+      archivos.push(await zipEntradaBlob(nombre, blob));
       generados.push(nombre);
     }
 
-    const zipBlob = await paquete.generateAsync({
-      type:'blob', compression:'DEFLATE', compressionOptions:{level:6}
-    });
+    const zipBlob = await zipEscribir(archivos, 'application/zip');
 
     const nombreZip = (masivo
       ? 'Oficios_Masivos_' + state.masivoFilas.length + '_expedientes'
