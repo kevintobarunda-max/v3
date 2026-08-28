@@ -1343,13 +1343,24 @@
             <option value="libre">Otro destinatario (escribir)</option>
           </select>
         </div>
-        <div class="field" id="ofMasFieldComuna">
-          <label>Comuna de la Dirección de Obras</label>
-          <select id="ofMasComuna"></select>
-        </div>
         <div class="field" id="ofMasFieldLibre" style="display:none">
           <label>Destinatario (tal como debe salir en el oficio)</label>
           <input type="text" id="ofMasDestinoLibre" placeholder="SR. DIRECTOR REGIONAL DE ...">
+        </div>
+        <div class="field" id="ofMasFieldComuna">
+          <label>Comuna de la Dirección de Obras</label>
+          <select id="ofMasComuna"></select>
+          <p class="hint" id="ofMasHintComuna" style="margin:4px 0 0"></p>
+        </div>
+        <div class="field" id="ofMasFieldGenero">
+          <label>Género del solicitante</label>
+          <select id="ofMasGenero">
+            <option value="F">Femenino — «la solicitante indicada a continuación, ha»</option>
+            <option value="M">Masculino — «el solicitante indicado a continuación, ha»</option>
+          </select>
+          <p class="hint" style="margin:4px 0 0">
+            Sólo afecta la frase de apertura. Con dos o más expedientes se usa el plural.
+          </p>
         </div>
       </fieldset>
 
@@ -1462,7 +1473,9 @@
 
       <fieldset>
         <legend>Firma</legend>
-        <div class="field">
+        <!-- La plantilla del oficio masivo no lleva nombre de firmante, así que
+             este campo no tendría efecto y se oculta en ese modo. -->
+        <div class="field" id="ofFieldSeremi">
           <label>SEREMI de Bienes Nacionales (firma)</label>
           <input type="text" id="ofSeremi" value="Flavio Esteban Bazzi Pezoa">
         </div>
@@ -5299,6 +5312,10 @@ function renderOficioTipo(){
   q('ofFieldEmail').style.display          = (!masivo && tipo==='conservador') ? 'block' : 'none';
   q('ofFieldsetInscripcion').style.display = masivo ? 'none' : 'block';
   q('ofFieldsetRol').style.display         = masivo ? 'none' : 'block';
+  q('ofFieldSeremi').style.display         = masivo ? 'none' : 'block';
+  /* Los N° de ordinario por institución sólo sirven para el despacho de los
+     tres juntos, que no aplica al Conservador. */
+  q('ofFieldTrioNums').style.display       = (tipo === 'conservador') ? 'none' : 'block';
   // el campo de fecha queda siempre oculto: los oficios se emiten sin fecha
 
   if(masivo) renderMasivoFilas();
@@ -5328,10 +5345,28 @@ function masivoFilaVacia(){
 }
 
 function renderMasivoDestino(){
-  const d = val('ofMasDestino');
-  q('ofMasFieldComuna').style.display = (d === 'dom')   ? 'block' : 'none';
-  q('ofMasFieldLibre').style.display  = (d === 'libre') ? 'block' : 'none';
+  q('ofMasFieldLibre').style.display = (val('ofMasDestino') === 'libre') ? 'block' : 'none';
+  aplicarVisibilidadMasivo();
   generarOficioPreview();
+}
+
+/* La comuna de la Dirección de Obras hace falta en dos situaciones: cuando este
+   oficio va dirigido a la DOM, y SIEMPRE que se descarguen los tres a la vez,
+   porque uno de los tres es el de la DOM. Antes sólo se mostraba en el primer
+   caso, de modo que al elegir MINVU o SERVIU y pulsar «los 3 a la vez» el
+   generador se detenía pidiendo una comuna que no tenía dónde escribirse.
+   Ahora el campo queda siempre a la vista y sólo cambia la explicación. */
+function aplicarVisibilidadMasivo(){
+  const hint = q('ofMasHintComuna');
+  if(hint){
+    hint.textContent = (val('ofMasDestino') === 'dom')
+      ? 'Es el destinatario de este oficio.'
+      : 'Este oficio no va a la DOM, pero la comuna se usa para el oficio a la DOM al descargar «los 3 a la vez».';
+  }
+  /* La frase de apertura sólo necesita concordar en género cuando hay un único
+     expediente; con dos o más va en plural y el campo no aporta nada. */
+  const genero = q('ofMasFieldGenero');
+  if(genero) genero.style.display = (state.masivoFilas.length === 1) ? 'block' : 'none';
 }
 
 /* Línea "A:" de cada una de las tres instituciones que se consultan por la
@@ -5360,6 +5395,9 @@ function renderMasivoFilas(){
   if(!cont) return;
   const filas = state.masivoFilas;
   q('ofMasCount').textContent = filas.length;
+  /* El campo de género depende de cuántos expedientes haya, así que se revisa
+     cada vez que la lista cambia. */
+  aplicarVisibilidadMasivo();
 
   if(!filas.length){
     cont.innerHTML = '<div class="mas-vacio">Todavía no hay expedientes.<br>Usa «↓ Agregar el expediente del Informe» o «+ Fila vacía».</div>';
@@ -5480,8 +5518,11 @@ function masivoAgregarDesdeInforme(){
     inscripcion: inscripcion
   });
 
-  // si el destinatario es la DOM, se sugiere la comuna del expediente
-  if(val('ofMasDestino') === 'dom' && comuna && !val('ofMasComuna')) q('ofMasComuna').value = comuna;
+  /* Se sugiere la comuna del expediente: sirve tanto si este oficio va a la DOM
+     como para el oficio a la DOM de «los 3 a la vez». */
+  if(comuna && !val('ofMasComuna')) q('ofMasComuna').value = comuna;
+  /* Y el género, para que la frase de apertura concuerde con quien viene del Informe. */
+  if(q('ofMasGenero')) q('ofMasGenero').value = state.genero;
 
   renderMasivoFilas();
   guardarTodo();
@@ -5520,16 +5561,17 @@ function datosOficioMasivo(){
     : [masivoFilaVacia()];
   const varios = filas.length > 1;
 
-  // concordancia de género/número de la frase de apertura
+  /* Concordancia de género y número de la frase de apertura. Con un solo
+     expediente el género se toma del campo de la propia pestaña de oficios y no
+     del Informe: la lista puede venir pegada desde Excel y tratarse de una
+     persona distinta a la que está cargada en el Informe. */
   let intro;
   if(varios){
     intro = 'los solicitantes indicados a continuación, han';
   } else {
-    const nombre = (filas[0].solicitante || '');
-    // se usa el femenino solo si el género está marcado en el Informe
-    intro = (state.genero === 'F' && nombre)
-      ? 'la solicitante indicada a continuación, ha'
-      : 'el solicitante indicado a continuación, ha';
+    intro = (val('ofMasGenero') === 'M')
+      ? 'el solicitante indicado a continuación, ha'
+      : 'la solicitante indicada a continuación, ha';
   }
 
   return {
@@ -5554,6 +5596,7 @@ function autocompletarOficios(){
   const d = encabezadoComun();
   q('ofNombre').value = val('nombre');
   q('ofGenero').value = state.genero;
+  if(q('ofMasGenero')) q('ofMasGenero').value = state.genero;
   q('ofCi').value = val('rut');
   q('ofExpediente').value = val('expN');
   q('ofUbicacion').value = val('ubicacion');
