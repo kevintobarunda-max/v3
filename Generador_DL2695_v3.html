@@ -157,6 +157,24 @@
   .bit-red-exp{margin-bottom:18px;}
   .bit-red-cab{font-weight:700;margin-bottom:6px;}
   .bit-red p{margin:0 0 4px;text-align:justify;}
+  .bit-tbl-ancha td:nth-child(6){min-width:300px;}
+
+  /* ---- Impresión: sólo sale la bitácora ---- */
+  #bitacoraImpresion{display:none;}
+  @media print{
+    body > *{display:none !important;}
+    body > #bitacoraImpresion{display:block !important;}
+    #bitacoraImpresion h1{font-size:13pt;text-align:center;margin:0 0 8pt;}
+    #bitacoraImpresion table{width:100%;border-collapse:collapse;font-size:8pt;}
+    #bitacoraImpresion th,#bitacoraImpresion td{border:1px solid #666;padding:2pt 3pt;
+      text-align:left;vertical-align:top;}
+    #bitacoraImpresion th{background:#d9e2f3;}
+    /* Repite los títulos en cada página y evita cortar una fila en dos. */
+    #bitacoraImpresion thead{display:table-header-group;}
+    #bitacoraImpresion tr{page-break-inside:avoid;}
+    #bitacoraImpresion .bit-pie{font-size:7.5pt;margin-top:8pt;}
+    @page{size:A4 landscape;margin:10mm;}
+  }
   .gender-toggle{display:flex;gap:8px;}
   .gender-toggle button{
     flex:1;padding:10px 8px;border-radius:9px;border:1.5px solid #d7dbe2;
@@ -1461,22 +1479,31 @@
     <section class="panel">
       <div class="panel-head">
         <h2>Vista previa de la bitácora</h2>
-        <span class="hint">redactada en primera persona, lista para copiar</span>
+        <span class="hint"><span id="bitPreviewCuenta">0</span> registro(s) · lista para exportar</span>
       </div>
       <div class="panel-body">
         <div class="btn-row" style="margin-top:0">
-          <button type="button" class="btn btn-primary btn-sm" onclick="bitacoraCopiarRedaccion()">📋 Copiar la redacción</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="bitacoraExportarDocx()">⬇ Exportar a Word (.docx)</button>
+          <button type="button" class="btn btn-red btn-sm" onclick="bitacoraExportarPdf()">⬇ Exportar a PDF</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="bitacoraCopiarRedaccion()">📋 Copiar la redacción</button>
         </div>
-        <div class="paper-wrap" style="margin-top:10px">
-          <div class="of-paper">
-            <div id="bitacoraPreview" class="of-paper-content bit-red"></div>
-          </div>
+        <p class="hint" style="margin:6px 0 0">
+          El PDF se genera por el diálogo de impresión del navegador: elige
+          «Guardar como PDF» como destino. Conviene dejarlo en horizontal.
+        </p>
+        <div class="bit-scroll" style="margin-top:10px;max-height:520px">
+          <div id="bitacoraPreview"></div>
         </div>
       </div>
     </section>
 
   </div>
 </div>
+
+<!-- Contenedor que se usa sólo al imprimir: se rellena con la bitácora y las
+     reglas de @media print hacen que sea lo único que salga en el papel o en el
+     PDF. -->
+<div id="bitacoraImpresion"></div>
 
 <div class="layout" id="oficiosView" style="display:none">
   <aside class="panel">
@@ -6769,10 +6796,14 @@ function padronRecalcular(){
          + dudosos.length + ' expediente(s), porque el texto no calza con una sola opción: '
          + dudosos.slice(0,6).join(', ') + (dudosos.length > 6 ? '…' : '') + '.';
   }
-  q('padronStatus').textContent = msg;
   q('padronMapeoBloque').style.display = 'block';
   q('padronBitBloque').style.display = 'block';
   if(!val('padronAnio')) q('padronAnio').value = String(new Date().getFullYear());
+
+  /* La bitácora se arma de inmediato con lo que la tabla ya dice, sin tener que
+     pulsar nada: al agregar el documento queda lista. */
+  const resumen = bitacoraDesdePadron({silencioso:true});
+  q('padronStatus').textContent = msg + (resumen ? ' Bitácora: ' + resumen : '');
 }
 
 function padronVaciar(){
@@ -7142,10 +7173,10 @@ function padronFechaISO(texto, anio){
   return y + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
 }
 
-function bitacoraDesdePadron(){
+function bitacoraDesdePadron(opciones){
   if(!state.padron.length){
-    q('padronStatus').textContent = 'Carga primero la tabla de expedientes.';
-    return;
+    if(!(opciones && opciones.silencioso)) q('padronStatus').textContent = 'Carga primero la tabla de expedientes.';
+    return '';
   }
   const anio = val('padronAnio') || String(new Date().getFullYear());
 
@@ -7179,14 +7210,18 @@ function bitacoraDesdePadron(){
   renderBitacora();
   guardarTodo();
 
-  let msg = '✓ ' + tareas + ' tarea(s) creadas en ' + expedientes + ' expediente(s) desde el padrón.';
-  if(manuales) msg += ' Se conservaron ' + manuales + ' tarea(s) que habías anotado a mano.';
-  if(antes - manuales) msg += ' Se reemplazaron ' + (antes - manuales) + ' de una importación anterior.';
+  let msg = tareas + ' gestión(es) registradas en ' + expedientes + ' expediente(s).';
+  if(manuales) msg += ' Se conservaron ' + manuales + ' anotada(s) a mano.';
+  if(antes - manuales) msg += ' Se reemplazaron ' + (antes - manuales) + ' de una lectura anterior.';
   if(sinFecha.length){
-    msg += ' Sin fecha reconocible: ' + sinFecha.slice(0,5).join(', ')
-         + (sinFecha.length > 5 ? '…' : '') + ' — quedaron con el texto tal cual.';
+    msg += ' Sin fecha reconocible: ' + sinFecha.slice(0,4).join(', ')
+         + (sinFecha.length > 4 ? '…' : '') + ' — quedaron con el texto tal cual.';
   }
-  q('padronStatus').textContent = msg;
+  /* Devuelve el resumen para que quien la llame decida dónde mostrarlo: al
+     cargar el archivo se suma al mensaje del padrón, y desde el botón se
+     muestra solo. */
+  if(!(opciones && opciones.silencioso)) q('padronStatus').textContent = '✓ ' + msg;
+  return msg;
 }
 
 function bitacoraAgregar(){
@@ -7228,9 +7263,9 @@ function bitacoraEliminar(i){
 function renderBitacora(){
   const cont = q('bitacoraTablas');
   if(!cont) return;
-  if(!state.bitacora.length){
+  if(!state.bitacora.length && !state.padron.length){
     cont.innerHTML = '<div class="bit-vacio">Todavía no hay tareas registradas.<br>'
-      + 'Usa «➕ Agregar tarea a expediente» para empezar.</div>';
+      + 'Carga tu tabla de expedientes o usa «➕ Agregar tarea a expediente».</div>';
     renderBitacoraPreview();
     return;
   }
@@ -7255,13 +7290,14 @@ function renderBitacora(){
       ${guardado}
       <table class="bit-tbl">
         <thead><tr><th style="width:96px">Fecha</th><th>Tarea</th><th style="width:110px">N°</th><th>Observación</th><th style="width:34px"></th></tr></thead>
-        <tbody>${tareas.map(t=>`<tr>
+        <tbody>${tareas.length ? tareas.map(t=>`<tr>
           <td class="num">${escaparHtml(fechaCorta(t.fecha))}</td>
           <td>${escaparHtml(t.nombre)}</td>
           <td class="num">${escaparHtml(t.numero || '—')}</td>
           <td>${escaparHtml(t.nota || '')}</td>
           <td><button type="button" class="bit-del" title="Quitar" onclick="bitacoraEliminar(${t._i})">✕</button></td>
-        </tr>`).join('')}</tbody>
+        </tr>`).join('')
+        : '<tr><td colspan="5" style="color:var(--gris-600)">Sin gestiones registradas.</td></tr>'}</tbody>
       </table>
     </div>`;
   }).join('');
@@ -7292,7 +7328,28 @@ function bitacoraCitaNumero(nombre, numero){
   return ', N° ' + n;
 }
 
-function bitacoraRedaccion(t){
+/* Nombres más formales para la redacción. En las tablas conviene la forma corta
+   («Resolución (+)») porque las columnas son angostas, pero al redactar se
+   escribe completo: «Resolución de tipo positivo». */
+const BITACORA_FORMAL = [
+  [/^Resoluci(o|ó)n Reposici(o|ó)n/i,      'Resolución de Reposición'],
+  [/^Notificaci(o|ó)n Reposici(o|ó)n/i,    'Notificación de Reposición'],
+  [/^Notificaci(o|ó)n Resoluci(o|ó)n B/i,  'Notificación de la Resolución B']
+];
+
+function bitacoraNombreFormal(nombre){
+  let n = String(nombre == null ? '' : nombre).trim();
+  const regla = BITACORA_FORMAL.find(([re])=> re.test(n));
+  if(regla) n = n.replace(regla[0], regla[1]);
+  return n
+    .replace(/\s*\(\s*\+\s*\)/,                ' de tipo positivo')
+    .replace(/\s*\(\s*[-\u2012-\u2015\u2212]\s*\)/, ' de tipo negativo')
+    .replace(/\s*\(\s*acoge\s*\)/i,            ' que acoge el recurso')
+    .replace(/\s*\(\s*rechaza\s*\)/i,          ' que rechaza el recurso');
+}
+
+function bitacoraRedaccion(t, opciones){
+  const conNumero = !(opciones && opciones.sinNumero);
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(t.fecha||''))
     ? fechaProsa(t.fecha)
     : String(t.fecha || '__ de ______ de ____');
@@ -7305,8 +7362,8 @@ function bitacoraRedaccion(t){
     nota = ' ' + texto.charAt(0).toUpperCase() + texto.slice(1) + '.';
   }
 
-  return 'Con fecha ' + fecha + ' ' + BITACORA_VERBO + ' ' + String(t.nombre||'').trim()
-       + bitacoraCitaNumero(t.nombre, t.numero) + '.' + nota;
+  return 'Con fecha ' + fecha + ' ' + BITACORA_VERBO + ' ' + bitacoraNombreFormal(t.nombre)
+       + (conNumero ? bitacoraCitaNumero(t.nombre, t.numero) : '') + '.' + nota;
 }
 
 /* Texto corrido de toda la bitácora, por expediente. Es lo que se ve en la
@@ -7315,41 +7372,222 @@ function bitacoraTexto(){
   const grupos = bitacoraAgrupada();
   return grupos.map(({exp, quien, tareas})=>{
     const cab = 'EXPEDIENTE ' + exp + (quien ? ' — ' + quien : '');
-    return cab + '\n' + tareas.map(t=> bitacoraRedaccion(t)).join('\n');
+    const cuerpo = tareas.length
+      ? tareas.map(t=> bitacoraRedaccion(t)).join('\n')
+      : 'Sin gestiones registradas.';
+    return cab + '\n' + cuerpo;
   }).join('\n\n');
 }
 
 /* Agrupa por expediente conservando el orden de aparición, y ordena las tareas
    de cada uno por fecha. Lo usan la tabla, la vista previa y el copiado. */
 function bitacoraAgrupada(){
-  const grupos = new Map();
+  const porExp = new Map();
   state.bitacora.forEach((t,i)=>{
-    if(!grupos.has(t.exp)) grupos.set(t.exp, []);
-    grupos.get(t.exp).push(Object.assign({}, t, {_i:i}));
+    if(!porExp.has(t.exp)) porExp.set(t.exp, []);
+    porExp.get(t.exp).push(Object.assign({}, t, {_i:i}));
   });
-  return Array.from(grupos.entries()).map(([exp, tareas])=>{
+
+  /* Aparecen TODOS los expedientes del padrón, incluso los que sólo traen el
+     número y todavía no tienen ninguna gestión: la bitácora es el registro
+     completo, no sólo lo ya trabajado. Se sigue el orden del padrón, que es el de
+     la tabla de la unidad, y al final los expedientes que no estén en él. */
+  const orden = [], vistos = new Set();
+  state.padron.forEach(r=>{ if(r.exp && !vistos.has(r.exp)){ orden.push(r.exp); vistos.add(r.exp); } });
+  porExp.forEach((_,exp)=>{ if(!vistos.has(exp)){ orden.push(exp); vistos.add(exp); } });
+
+  return orden.map(exp=>{
     const reg = padronBuscar(exp);
     return {
-      exp,
+      exp: exp,
+      reg: reg,
       quien: (reg && reg.solicitante) ? reg.solicitante : '',
-      tareas: tareas.slice().sort((a,b)=> String(a.fecha).localeCompare(String(b.fecha)))
+      tareas: (porExp.get(exp) || []).slice()
+                .sort((a,b)=> String(a.fecha).localeCompare(String(b.fecha)))
     };
   });
+}
+
+/* ---------- La bitácora como tabla ----------
+   Una fila por gestión, con los datos del expediente al lado, de modo que la
+   tabla se pueda leer, imprimir o exportar sin depender de nada más. Los
+   expedientes sin gestiones aparecen igual, para que el registro esté completo. */
+const BITACORA_COLUMNAS = [
+  {k:'exp',         etiqueta:'Expediente',        ancho:1150},
+  {k:'solicitante', etiqueta:'Solicitante',       ancho:2500},
+  {k:'rut',         etiqueta:'RUT',               ancho:1350},
+  {k:'comuna',      etiqueta:'Comuna',            ancho:1250},
+  {k:'rol',         etiqueta:'Rol de avalúo',     ancho:1250},
+  {k:'gestion',     etiqueta:'Gestión realizada', ancho:4700},
+  {k:'numero',      etiqueta:'N° documento',      ancho:1300},
+  {k:'nota',        etiqueta:'Observación',       ancho:1700}
+];
+
+function bitacoraFilas(){
+  const filas = [];
+  bitacoraAgrupada().forEach(({exp, quien, reg, tareas})=>{
+    const d = bitacoraDatosDe(exp);
+    const base = {
+      exp: exp,
+      solicitante: quien,
+      rut: (reg && reg.rut) || '',
+      comuna: (reg && reg.comuna) || '',
+      rol: (reg && reg.rol) || d.rolAvaluo || ''
+    };
+    if(!tareas.length){
+      filas.push(Object.assign({}, base, {gestion:'Sin gestiones registradas.', numero:'', nota:''}));
+      return;
+    }
+    tareas.forEach(t=>{
+      filas.push(Object.assign({}, base, {
+        /* El número va en su propia columna, así que no se repite en la frase. */
+        gestion: bitacoraRedaccion(t, {sinNumero:true}),
+        numero: t.numero || '',
+        nota: t.nota || ''
+      }));
+    });
+  });
+  return filas;
+}
+
+function bitacoraTablaHtml(){
+  const filas = bitacoraFilas();
+  if(!filas.length) return '<div class="bit-vacio">Todavía no hay nada que mostrar.</div>';
+  return '<table class="bit-tbl bit-tbl-ancha"><thead><tr>'
+    + BITACORA_COLUMNAS.map(c=>`<th>${escaparHtml(c.etiqueta)}</th>`).join('')
+    + '</tr></thead><tbody>'
+    + filas.map(f=>'<tr>' + BITACORA_COLUMNAS.map(c=>
+        `<td${c.k==='exp'||c.k==='numero' ? ' class="num"' : ''}>${escaparHtml(f[c.k] || '')}</td>`
+      ).join('') + '</tr>').join('')
+    + '</tbody></table>';
 }
 
 function renderBitacoraPreview(){
   const cont = q('bitacoraPreview');
   if(!cont) return;
-  const grupos = bitacoraAgrupada();
-  if(!grupos.length){
-    cont.innerHTML = '<div class="bit-vacio">Cuando registres tareas, aquí las verás redactadas.</div>';
+  const filas = bitacoraFilas();
+  if(!filas.length){
+    cont.innerHTML = '<div class="bit-vacio">Carga tu tabla o registra tareas y aquí verás la bitácora.</div>';
+    if(q('bitPreviewCuenta')) q('bitPreviewCuenta').textContent = '0';
     return;
   }
-  cont.innerHTML = grupos.map(({exp, quien, tareas})=>
-    `<div class="bit-red-exp">
-       <div class="bit-red-cab">EXPEDIENTE ${escaparHtml(exp)}${quien ? ' — ' + escaparHtml(quien) : ''}</div>
-       ${tareas.map(t=>`<p>${escaparHtml(bitacoraRedaccion(t))}</p>`).join('')}
-     </div>`).join('');
+  cont.innerHTML = bitacoraTablaHtml();
+  if(q('bitPreviewCuenta')) q('bitPreviewCuenta').textContent = filas.length;
+}
+
+/* ---------- Exportar ----------
+   El .docx se arma completo con el escritor de ZIP propio: no hay plantilla que
+   rellenar, así que el documento se construye desde cero. El PDF sale por el
+   diálogo de impresión del navegador («Guardar como PDF»), que es la única vía
+   sin depender de librerías externas, y de paso respeta la configuración de
+   página de cada equipo. */
+const BITACORA_TITULO = 'BITÁCORA DE GESTIONES POR EXPEDIENTE';
+
+function bitacoraPieTexto(n){
+  return n + ' registro(s). Emitida el ' + fechaProsa(new Date().toISOString().slice(0,10)) + '.';
+}
+
+async function bitacoraExportarDocx(){
+  const filas = bitacoraFilas();
+  if(!filas.length){ q('bitStatus').textContent = 'No hay nada que exportar todavía.'; return; }
+  if(!soportaZip()){ q('bitStatus').textContent = AVISO_NAVEGADOR; return; }
+
+  try{
+    const ancho = BITACORA_COLUMNAS.reduce((s,c)=> s + c.ancho, 0);
+    const celda = (texto, o)=>
+      '<w:tc><w:tcPr><w:tcW w:w="' + o.ancho + '" w:type="dxa"/>'
+      + (o.fondo ? '<w:shd w:val="clear" w:color="auto" w:fill="' + o.fondo + '"/>' : '')
+      + '</w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r>'
+      + (o.negrita ? '<w:rPr><w:b/></w:rPr>' : '')
+      + '<w:t xml:space="preserve">' + xmlEscape(String(texto == null ? '' : texto)) + '</w:t>'
+      + '</w:r></w:p></w:tc>';
+
+    const bordes = '<w:tblBorders>'
+      + ['top','left','bottom','right','insideH','insideV']
+          .map(b=>'<w:'+b+' w:val="single" w:sz="4" w:space="0" w:color="808080"/>').join('')
+      + '</w:tblBorders>';
+
+    const tabla = '<w:tbl><w:tblPr><w:tblW w:w="' + ancho + '" w:type="dxa"/>' + bordes + '</w:tblPr>'
+      + '<w:tblGrid>' + BITACORA_COLUMNAS.map(c=>'<w:gridCol w:w="'+c.ancho+'"/>').join('') + '</w:tblGrid>'
+      /* tblHeader repite la fila de títulos en cada página. */
+      + '<w:tr><w:trPr><w:tblHeader/></w:trPr>'
+      + BITACORA_COLUMNAS.map(c=> celda(c.etiqueta, {ancho:c.ancho, negrita:true, fondo:'D9E2F3'})).join('')
+      + '</w:tr>'
+      + filas.map(f=>'<w:tr>' + BITACORA_COLUMNAS.map(c=> celda(f[c.k], {ancho:c.ancho})).join('') + '</w:tr>').join('')
+      + '</w:tbl>';
+
+    const doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      + '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'
+      + '<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="220"/></w:pPr><w:r>'
+      + '<w:rPr><w:b/><w:sz w:val="26"/></w:rPr><w:t xml:space="preserve">' + xmlEscape(BITACORA_TITULO) + '</w:t>'
+      + '</w:r></w:p>'
+      + tabla
+      + '<w:p><w:pPr><w:spacing w:before="200"/></w:pPr><w:r><w:rPr><w:sz w:val="16"/></w:rPr>'
+      + '<w:t xml:space="preserve">' + xmlEscape(bitacoraPieTexto(filas.length)) + '</w:t></w:r></w:p>'
+      + '<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>'
+      + '<w:pgMar w:top="720" w:right="720" w:bottom="720" w:left="720" w:header="0" w:footer="0" w:gutter="0"/>'
+      + '</w:sectPr></w:body></w:document>';
+
+    const NS_CT = 'http://schemas.openxmlformats.org/package/2006/content-types';
+    const NS_R  = 'http://schemas.openxmlformats.org/package/2006/relationships';
+    const NS_OD = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const TIPO_DOC = 'application/vnd.openxmlformats-officedocument.wordprocessingml';
+
+    const partes = [
+      ['[Content_Types].xml',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="' + NS_CT + '">'
+        + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        + '<Default Extension="xml" ContentType="application/xml"/>'
+        + '<Override PartName="/word/document.xml" ContentType="' + TIPO_DOC + '.document.main+xml"/>'
+        + '<Override PartName="/word/styles.xml" ContentType="' + TIPO_DOC + '.styles+xml"/>'
+        + '</Types>'],
+      ['_rels/.rels',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="' + NS_R + '">'
+        + '<Relationship Id="rId1" Type="' + NS_OD + '/officeDocument" Target="word/document.xml"/>'
+        + '</Relationships>'],
+      ['word/_rels/document.xml.rels',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="' + NS_R + '">'
+        + '<Relationship Id="rId1" Type="' + NS_OD + '/styles" Target="styles.xml"/>'
+        + '</Relationships>'],
+      ['word/styles.xml',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        + '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        + '<w:docDefaults><w:rPrDefault><w:rPr>'
+        + '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="18"/>'
+        + '</w:rPr></w:rPrDefault></w:docDefaults>'
+        + '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>'
+        + '</w:styles>'],
+      ['word/document.xml', doc]
+    ];
+
+    const entradas = [];
+    for(const [nombre, contenido] of partes) entradas.push(await zipEntradaTexto(nombre, contenido));
+    const blob = await zipEscribir(entradas, MIME_DOCX);
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Bitacora_' + new Date().toISOString().slice(0,10) + '.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    q('bitStatus').textContent = '✓ Bitácora exportada a Word: ' + filas.length + ' registro(s).';
+  } catch(err){
+    console.error(err);
+    q('bitStatus').textContent = 'No se pudo exportar a Word: ' + err.message;
+  }
+}
+
+function bitacoraExportarPdf(){
+  const filas = bitacoraFilas();
+  if(!filas.length){ q('bitStatus').textContent = 'No hay nada que exportar todavía.'; return; }
+  const cont = q('bitacoraImpresion');
+  cont.innerHTML = '<h1>' + escaparHtml(BITACORA_TITULO) + '</h1>'
+    + bitacoraTablaHtml()
+    + '<p class="bit-pie">' + escaparHtml(bitacoraPieTexto(filas.length)) + '</p>';
+  q('bitStatus').textContent = 'Se abrió el diálogo de impresión: elige «Guardar como PDF» como destino.';
+  window.print();
 }
 
 function bitacoraCopiarRedaccion(){
