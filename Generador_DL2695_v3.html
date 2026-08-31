@@ -1482,7 +1482,7 @@
     <section class="panel">
       <div class="panel-head">
         <h2>Vista previa de la bitácora</h2>
-        <span class="hint"><span id="bitPreviewCuenta">0</span> registro(s) · lista para exportar</span>
+        <span class="hint"><span id="bitPreviewCuenta">sin datos</span> · lista para exportar</span>
       </div>
       <div class="panel-body">
         <div class="btn-row" style="margin-top:0">
@@ -7415,42 +7415,41 @@ function bitacoraAgrupada(){
    Una fila por gestión, con los datos del expediente al lado, de modo que la
    tabla se pueda leer, imprimir o exportar sin depender de nada más. Los
    expedientes sin gestiones aparecen igual, para que el registro esté completo. */
+/* Una fila por EXPEDIENTE, con todas sus gestiones dentro de la misma fila, una
+   por línea. Así el número de expediente aparece una sola vez y se lee de
+   corrido lo hecho en cada uno.
+
+   Al ir las gestiones apiladas en una celda, el número de documento y la
+   observación no pueden tener columna propia —no habría a qué línea corresponden—
+   así que vuelven a la frase, que es donde ya se leen bien. */
 const BITACORA_COLUMNAS = [
-  {k:'exp',         etiqueta:'Expediente',        ancho:1150},
-  {k:'solicitante', etiqueta:'Solicitante',       ancho:2500},
-  {k:'rut',         etiqueta:'RUT',               ancho:1350},
-  {k:'comuna',      etiqueta:'Comuna',            ancho:1250},
-  {k:'rol',         etiqueta:'Rol de avalúo',     ancho:1250},
-  {k:'gestion',     etiqueta:'Gestión realizada', ancho:4700},
-  {k:'numero',      etiqueta:'N° documento',      ancho:1300},
-  {k:'nota',        etiqueta:'Observación',       ancho:1700}
+  {k:'exp',         etiqueta:'Expediente',          ancho:1150},
+  {k:'solicitante', etiqueta:'Solicitante',         ancho:2500},
+  {k:'rut',         etiqueta:'RUT',                 ancho:1350},
+  {k:'comuna',      etiqueta:'Comuna',              ancho:1250},
+  {k:'rol',         etiqueta:'Rol de avalúo',       ancho:1250},
+  {k:'gestiones',   etiqueta:'Gestiones realizadas',ancho:7700, lineas:true}
 ];
 
 function bitacoraFilas(){
-  const filas = [];
-  bitacoraAgrupada().forEach(({exp, quien, reg, tareas})=>{
+  return bitacoraAgrupada().map(({exp, quien, reg, tareas})=>{
     const d = bitacoraDatosDe(exp);
-    const base = {
+    return {
       exp: exp,
       solicitante: quien,
       rut: (reg && reg.rut) || '',
       comuna: (reg && reg.comuna) || '',
-      rol: (reg && reg.rol) || d.rolAvaluo || ''
+      rol: (reg && reg.rol) || d.rolAvaluo || '',
+      gestiones: tareas.length
+        ? tareas.map(t=> bitacoraRedaccion(t))
+        : ['Sin gestiones registradas.']
     };
-    if(!tareas.length){
-      filas.push(Object.assign({}, base, {gestion:'Sin gestiones registradas.', numero:'', nota:''}));
-      return;
-    }
-    tareas.forEach(t=>{
-      filas.push(Object.assign({}, base, {
-        /* El número va en su propia columna, así que no se repite en la frase. */
-        gestion: bitacoraRedaccion(t, {sinNumero:true}),
-        numero: t.numero || '',
-        nota: t.nota || ''
-      }));
-    });
   });
-  return filas;
+}
+
+/* Cuántas gestiones hay en total, para el recuento de la vista previa. */
+function bitacoraTotalGestiones(){
+  return state.bitacora.length;
 }
 
 function bitacoraTablaHtml(){
@@ -7459,9 +7458,13 @@ function bitacoraTablaHtml(){
   return '<table class="bit-tbl bit-tbl-ancha"><thead><tr>'
     + BITACORA_COLUMNAS.map(c=>`<th>${escaparHtml(c.etiqueta)}</th>`).join('')
     + '</tr></thead><tbody>'
-    + filas.map(f=>'<tr>' + BITACORA_COLUMNAS.map(c=>
-        `<td${c.k==='exp'||c.k==='numero' ? ' class="num"' : ''}>${escaparHtml(f[c.k] || '')}</td>`
-      ).join('') + '</tr>').join('')
+    + filas.map(f=>'<tr>' + BITACORA_COLUMNAS.map(c=>{
+        /* Las gestiones van una por línea dentro de la misma celda. */
+        const contenido = c.lineas
+          ? (f[c.k] || []).map(l=> escaparHtml(l)).join('<br>')
+          : escaparHtml(f[c.k] || '');
+        return `<td${c.k === 'exp' ? ' class="num"' : ''}>${contenido}</td>`;
+      }).join('') + '</tr>').join('')
     + '</tbody></table>';
 }
 
@@ -7471,11 +7474,14 @@ function renderBitacoraPreview(){
   const filas = bitacoraFilas();
   if(!filas.length){
     cont.innerHTML = '<div class="bit-vacio">Carga tu tabla o registra tareas y aquí verás la bitácora.</div>';
-    if(q('bitPreviewCuenta')) q('bitPreviewCuenta').textContent = '0';
+    if(q('bitPreviewCuenta')) q('bitPreviewCuenta').textContent = 'sin datos';
     return;
   }
   cont.innerHTML = bitacoraTablaHtml();
-  if(q('bitPreviewCuenta')) q('bitPreviewCuenta').textContent = filas.length;
+  if(q('bitPreviewCuenta')){
+    q('bitPreviewCuenta').textContent = filas.length + ' expediente(s) · '
+      + bitacoraTotalGestiones() + ' gestión(es)';
+  }
 }
 
 /* ---------- Exportar ----------
@@ -7486,8 +7492,9 @@ function renderBitacoraPreview(){
    página de cada equipo. */
 const BITACORA_TITULO = 'BITÁCORA DE GESTIONES POR EXPEDIENTE';
 
-function bitacoraPieTexto(n){
-  return n + ' registro(s). Emitida el ' + fechaProsa(new Date().toISOString().slice(0,10)) + '.';
+function bitacoraPieTexto(expedientes){
+  return expedientes + ' expediente(s), ' + bitacoraTotalGestiones() + ' gestión(es). '
+       + 'Emitida el ' + fechaProsa(new Date().toISOString().slice(0,10)) + '.';
 }
 
 async function bitacoraExportarDocx(){
@@ -7497,13 +7504,22 @@ async function bitacoraExportarDocx(){
 
   try{
     const ancho = BITACORA_COLUMNAS.reduce((s,c)=> s + c.ancho, 0);
-    const celda = (texto, o)=>
-      '<w:tc><w:tcPr><w:tcW w:w="' + o.ancho + '" w:type="dxa"/>'
-      + (o.fondo ? '<w:shd w:val="clear" w:color="auto" w:fill="' + o.fondo + '"/>' : '')
-      + '</w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r>'
-      + (o.negrita ? '<w:rPr><w:b/></w:rPr>' : '')
-      + '<w:t xml:space="preserve">' + xmlEscape(String(texto == null ? '' : texto)) + '</w:t>'
-      + '</w:r></w:p></w:tc>';
+    /* Una celda puede llevar varias líneas: cada una es un párrafo de Word, que
+       es como se apilan las gestiones de un expediente dentro de su fila. */
+    const celda = (contenido, o)=>{
+      const lineas = Array.isArray(contenido)
+        ? (contenido.length ? contenido : [''])
+        : [contenido == null ? '' : contenido];
+      return '<w:tc><w:tcPr><w:tcW w:w="' + o.ancho + '" w:type="dxa"/>'
+        + (o.fondo ? '<w:shd w:val="clear" w:color="auto" w:fill="' + o.fondo + '"/>' : '')
+        + '</w:tcPr>'
+        + lineas.map(l=>
+            '<w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r>'
+            + (o.negrita ? '<w:rPr><w:b/></w:rPr>' : '')
+            + '<w:t xml:space="preserve">' + xmlEscape(String(l)) + '</w:t>'
+            + '</w:r></w:p>').join('')
+        + '</w:tc>';
+    };
 
     const bordes = '<w:tblBorders>'
       + ['top','left','bottom','right','insideH','insideV']
@@ -7575,7 +7591,8 @@ async function bitacoraExportarDocx(){
     a.click();
     document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(url), 4000);
-    q('bitStatus').textContent = '✓ Bitácora exportada a Word: ' + filas.length + ' registro(s).';
+    q('bitStatus').textContent = '✓ Bitácora exportada a Word: ' + filas.length
+      + ' expediente(s), ' + bitacoraTotalGestiones() + ' gestión(es).';
   } catch(err){
     console.error(err);
     q('bitStatus').textContent = 'No se pudo exportar a Word: ' + err.message;
