@@ -1315,6 +1315,7 @@
         <div class="btn-row" style="margin-top:0">
           <button class="btn btn-outline btn-sm" onclick="regenerarDesdeFormulario()" title="Descarta TODAS tus ediciones manuales de este documento y lo regenera desde el formulario">↻ Regenerar todo</button>
           <button class="btn btn-outline btn-sm" onclick="copiar()">⧉ Copiar texto</button>
+          <button class="btn btn-primary btn-sm" onclick="bitacoraAgregarDesdeDocumento()" title="Anota este documento, con su número y el signo que corresponda, en la bitácora del expediente">➕ Agregar como tarea a la bitácora</button>
           <button class="btn btn-red btn-sm" onclick="descargar()">⬇ Descargar .txt</button>
         </div>
       </div>
@@ -1363,6 +1364,30 @@
           <button type="button" class="btn btn-outline btn-sm" onclick="padronVaciar()">🗑 Vaciar padrón</button>
         </div>
         <div class="status" id="padronStatus" style="margin-top:10px">Todavía no has cargado ninguna tabla.</div>
+
+        <fieldset id="padronBitBloque" style="display:none;margin-top:12px">
+          <legend>Armar la bitácora con esta tabla</legend>
+          <p class="hint" style="margin:0 0 8px">
+            La columna de estado dice lo que ya se hizo en cada expediente
+            («INFORME POSITIVO», «RES/NOT +», «OF») y la de fecha dice cuándo. De ahí
+            se crean las tareas, para no reescribir el historial que ya llevabas.
+            Lo que esté marcado como <b>pendiente</b> o <b>ASIGNAR</b> no se anota
+            como hecho.
+          </p>
+          <div class="grid2">
+            <div class="field">
+              <label>Año de las fechas <span class="hint">· la tabla trae sólo día/mes</span></label>
+              <input type="text" id="padronAnio" data-fmt="digits" placeholder="">
+            </div>
+            <div class="field" style="display:flex;align-items:flex-end">
+              <button type="button" class="btn btn-primary btn-sm" onclick="bitacoraDesdePadron()">➕ Crear la bitácora desde el padrón</button>
+            </div>
+          </div>
+          <p class="hint" style="margin:6px 0 0">
+            Puedes repetirlo cuando actualices el archivo: se reemplaza sólo lo que
+            vino del padrón y se conserva lo que hayas anotado a mano.
+          </p>
+        </fieldset>
 
         <div id="padronMapeoBloque" style="display:none">
           <fieldset style="margin-top:12px">
@@ -6574,6 +6599,8 @@ function padronRecalcular(){
   }
   q('padronStatus').textContent = msg;
   q('padronMapeoBloque').style.display = 'block';
+  q('padronBitBloque').style.display = 'block';
+  if(!val('padronAnio')) q('padronAnio').value = String(new Date().getFullYear());
 }
 
 function padronVaciar(){
@@ -6585,6 +6612,7 @@ function padronVaciar(){
   renderBitacora();
   guardarTodo();
   q('padronMapeoBloque').style.display = 'none';
+  q('padronBitBloque').style.display = 'none';
   q('padronStatus').textContent = 'Padrón vacío. Carga tu tabla cuando quieras.';
 }
 
@@ -6761,16 +6789,63 @@ const BITACORA_TAREAS = [
 /* Para «Tomar del formulario»: qué tarea corresponde a cada pestaña de
    documento y en qué campo está su número. */
 const BITACORA_DESDE_TAB = {
-  informe:         {nombre:'Informe Jurídico 1',                  num:null},
-  resolucion:      {nombre:'Resolución',                          num:'resN'},
-  notificacion:    {nombre:'Notificación',                        num:'ordN'},
-  posesion:        {nombre:'Verificación de Posesión Material',    num:null},
-  informeB:        {nombre:'Informe Jurídico B',                   num:null},
-  resolucionB:     {nombre:'Resolución B',                         num:'resBN'},
-  notificacionB:   {nombre:'Notificación Resolución B',            num:'ordBN'},
-  resolucionRep:   {nombre:'Resolución Reposición',                num:'repResN'},
-  notificacionRep: {nombre:'Notificación Reposición',              num:'repOrdN'}
+  informe:         {nombre:'Informe Jurídico 1',                   num:null,      signo:'A'},
+  resolucion:      {nombre:'Resolución',                           num:'resN',    signo:'A'},
+  notificacion:    {nombre:'Notificación',                         num:'ordN',    signo:'A'},
+  posesion:        {nombre:'Verificación de Posesión Material',     num:null,      signo:'B'},
+  informeB:        {nombre:'Informe Jurídico B',                    num:null,      signo:'B'},
+  resolucionB:     {nombre:'Resolución B',                          num:'resBN',   signo:'B'},
+  notificacionB:   {nombre:'Notificación Resolución B',             num:'ordBN',   signo:'B'},
+  resolucionRep:   {nombre:'Resolución Reposición',                 num:'repResN', signo:'REP'},
+  notificacionRep: {nombre:'Notificación Reposición',               num:'repOrdN', signo:'REP'}
 };
+
+/* Arma la tarea que corresponde a un documento del generador: su nombre con el
+   signo anotado como lo hace la unidad en su tabla, y el número que lleva. */
+function bitacoraTareaDeTab(tab){
+  const info = BITACORA_DESDE_TAB[tab];
+  if(!info) return null;
+  let nombre = info.nombre;
+  if(info.signo === 'A')        nombre += (state.resultado === 'no') ? ' (−)' : ' (+)';
+  else if(info.signo === 'B')   nombre += esBPositivo() ? ' (+)' : ' (−)';
+  else if(info.signo === 'REP') nombre += esRepAcoge() ? ' (acoge)' : ' (rechaza)';
+  return {nombre: nombre, numero: info.num ? val(info.num) : ''};
+}
+
+/* Botón que vive en la barra de acciones de los documentos, así que está a mano
+   en las nueve pestañas: anota el documento que se tiene a la vista. */
+function bitacoraAgregarDesdeDocumento(){
+  const tarea = bitacoraTareaDeTab(activeMainTab());
+  const linea = q('statusLine');
+  if(!tarea){ linea.textContent = 'Esta pestaña no corresponde a un documento que se anote en la bitácora.'; return; }
+
+  const exp = val('expN');
+  if(!exp){
+    linea.textContent = 'Escribe primero el N° de expediente: la bitácora agrupa las tareas por expediente.';
+    return;
+  }
+  /* Si ya está anotado lo mismo con el mismo número, se avisa en lugar de
+     duplicar: es fácil pulsar el botón dos veces. */
+  const repetida = state.bitacora.some(t =>
+    t.exp === exp && t.nombre === tarea.nombre && (t.numero||'') === (tarea.numero||''));
+  if(repetida){
+    linea.textContent = '«' + tarea.nombre + '» ya estaba anotado en la bitácora del expediente ' + exp + '.';
+    return;
+  }
+
+  state.bitacora.push({
+    exp: exp,
+    fecha: new Date().toISOString().slice(0,10),
+    nombre: tarea.nombre,
+    numero: tarea.numero,
+    nota: '',
+    origen: 'manual'
+  });
+  renderBitacora();
+  guardarTodo();
+  linea.textContent = '✓ «' + tarea.nombre + '» anotado hoy en la bitácora del expediente ' + exp
+    + '. Puedes verlo en la pestaña Bitácora.';
+}
 
 function initBitacora(){
   const lista = q('bitTareas');
@@ -6784,6 +6859,8 @@ function initBitacora(){
     renderPadronMapeo();
     renderPadronPreview();
     q('padronMapeoBloque').style.display = 'block';
+    q('padronBitBloque').style.display = 'block';
+    if(!val('padronAnio')) q('padronAnio').value = String(new Date().getFullYear());
   }
   /* Al volver a abrir la pestaña el padrón ya está en memoria: el mensaje debe
      decir lo que hay, no invitar a cargar algo que ya está cargado. */
@@ -6798,25 +6875,99 @@ function initBitacora(){
 /* Toma el expediente, el último documento en que se estuvo trabajando y su
    número, tal como están ahora en el formulario. */
 function bitacoraDesdeFormulario(){
-  const tab = state.ultimaTabDoc || 'informe';
-  const info = BITACORA_DESDE_TAB[tab];
-  if(!info){ q('bitStatus').textContent = 'No hay un documento reciente del cual tomar los datos.'; return; }
+  const tarea = bitacoraTareaDeTab(state.ultimaTabDoc || 'informe');
+  if(!tarea){ q('bitStatus').textContent = 'No hay un documento reciente del cual tomar los datos.'; return; }
 
   if(val('expN')) q('bitExp').value = val('expN');
   q('bitFecha').value = new Date().toISOString().slice(0,10);
-
-  /* Se agrega el signo como lo anota la unidad en su tabla: «Resolución (+)». */
-  let nombre = info.nombre;
-  if(tab === 'resolucion' || tab === 'notificacion'){
-    nombre += (state.resultado === 'no') ? ' (−)' : ' (+)';
-  } else if(tab === 'resolucionB' || tab === 'notificacionB' || tab === 'informeB'){
-    nombre += esBPositivo() ? ' (+)' : ' (−)';
-  } else if(tab === 'resolucionRep' || tab === 'notificacionRep'){
-    nombre += esRepAcoge() ? ' (acoge)' : ' (rechaza)';
-  }
-  q('bitNombre').value = nombre;
-  q('bitNumero').value = info.num ? val(info.num) : '';
+  q('bitNombre').value = tarea.nombre;
+  q('bitNumero').value = tarea.numero;
   q('bitStatus').textContent = 'Datos tomados del formulario. Revisa y pulsa «Agregar tarea a expediente».';
+}
+
+/* ---------- Bitácora armada desde el padrón ----------
+   La columna de estado de la tabla resume lo que ya se hizo en cada expediente
+   («INFORME POSITIVO», «RES/NOT +», «OF»), y la de fecha dice cuándo. De ahí se
+   derivan las tareas, de modo que la bitácora arranca con el historial que la
+   unidad ya llevaba anotado y no hay que reescribirlo. */
+function bitacoraTareasDeEstado(reg){
+  const estado = sinAcentos(String(reg.estado || '')).toUpperCase();
+  if(!estado.trim()) return [];
+
+  /* El signo se toma del propio texto y, si no lo dice, de la columna (+)/(−). */
+  const signo = /NEGATIV/.test(estado) ? ' (\u2212)'
+              : /POSITIV/.test(estado) ? ' (+)'
+              : (String(reg.signo).indexOf('-') >= 0 ? ' (\u2212)'
+              : (String(reg.signo).indexOf('+') >= 0 ? ' (+)' : ''));
+
+  const tareas = [];
+  if(/INFORME/.test(estado)) tareas.push('Informe Jurídico 1' + signo);
+  if(/RES\s*\/\s*NOT/.test(estado)){
+    tareas.push('Resolución' + signo);
+    tareas.push('Notificación' + signo);
+  }
+  /* «OF PENDIENTE» y «ASIGNAR» no son tareas hechas, son cosas por hacer: no se
+     anotan como realizadas. */
+  if(/\bOF\b/.test(estado) && !/PENDIENTE/.test(estado)) tareas.push('Oficios');
+  return tareas;
+}
+
+/* La tabla anota las fechas como «31/07», sin año, así que el año se pide y
+   queda a la vista en lugar de adivinarse en silencio. */
+function padronFechaISO(texto, anio){
+  const m = String(texto == null ? '' : texto).trim()
+    .match(/^(\d{1,2})\s*\/\s*(\d{1,2})(?:\s*\/\s*(\d{2,4}))?$/);
+  if(!m) return '';
+  let y = m[3] || String(anio);
+  if(y.length === 2) y = '20' + y;
+  return y + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+}
+
+function bitacoraDesdePadron(){
+  if(!state.padron.length){
+    q('padronStatus').textContent = 'Carga primero la tabla de expedientes.';
+    return;
+  }
+  const anio = val('padronAnio') || String(new Date().getFullYear());
+
+  /* Sólo se reemplaza lo que vino del padrón en una importación anterior: las
+     tareas escritas a mano no se tocan, aunque se vuelva a importar. */
+  const antes = state.bitacora.length;
+  state.bitacora = state.bitacora.filter(t => t.origen !== 'padron');
+  const manuales = state.bitacora.length;
+
+  let tareas = 0, expedientes = 0;
+  const sinFecha = [];
+  state.padron.forEach(reg=>{
+    const nombres = bitacoraTareasDeEstado(reg);
+    if(!nombres.length) return;
+    const iso = padronFechaISO(reg.fecha, anio);
+    if(!iso && String(reg.fecha||'').trim()) sinFecha.push(reg.exp + ' («' + reg.fecha + '»)');
+    expedientes++;
+    nombres.forEach(nombre=>{
+      state.bitacora.push({
+        exp: reg.exp,
+        fecha: iso || String(reg.fecha || '').trim(),
+        nombre: nombre,
+        numero: '',
+        nota: '',
+        origen: 'padron'
+      });
+      tareas++;
+    });
+  });
+
+  renderBitacora();
+  guardarTodo();
+
+  let msg = '✓ ' + tareas + ' tarea(s) creadas en ' + expedientes + ' expediente(s) desde el padrón.';
+  if(manuales) msg += ' Se conservaron ' + manuales + ' tarea(s) que habías anotado a mano.';
+  if(antes - manuales) msg += ' Se reemplazaron ' + (antes - manuales) + ' de una importación anterior.';
+  if(sinFecha.length){
+    msg += ' Sin fecha reconocible: ' + sinFecha.slice(0,5).join(', ')
+         + (sinFecha.length > 5 ? '…' : '') + ' — quedaron con el texto tal cual.';
+  }
+  q('padronStatus').textContent = msg;
 }
 
 function bitacoraAgregar(){
