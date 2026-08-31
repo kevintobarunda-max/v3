@@ -152,6 +152,9 @@
   .bit-exp-head .quien{font-weight:400;color:var(--gris-600);font-size:12px;}
   .bit-del{border:none;background:transparent;cursor:pointer;color:var(--rojo);font-size:14px;line-height:1;padding:0 4px;}
   .bit-vacio{padding:14px;color:var(--gris-600);font-size:13px;text-align:center;}
+  .bit-red-exp{margin-bottom:18px;}
+  .bit-red-cab{font-weight:700;margin-bottom:6px;}
+  .bit-red p{margin:0 0 4px;text-align:justify;}
   .gender-toggle{display:flex;gap:8px;}
   .gender-toggle button{
     flex:1;padding:10px 8px;border-radius:9px;border:1.5px solid #d7dbe2;
@@ -1422,9 +1425,26 @@
         </fieldset>
 
         <div class="btn-row" style="margin-top:12px">
-          <button type="button" class="btn btn-outline btn-sm" onclick="bitacoraCopiar()">📋 Copiar toda la bitácora</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="bitacoraCopiar()">📋 Copiar como tabla</button>
         </div>
         <div id="bitacoraTablas" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Vista previa de la bitácora</h2>
+        <span class="hint">redactada en primera persona, lista para copiar</span>
+      </div>
+      <div class="panel-body">
+        <div class="btn-row" style="margin-top:0">
+          <button type="button" class="btn btn-primary btn-sm" onclick="bitacoraCopiarRedaccion()">📋 Copiar la redacción</button>
+        </div>
+        <div class="paper-wrap" style="margin-top:10px">
+          <div class="of-paper">
+            <div id="bitacoraPreview" class="of-paper-content bit-red"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -6721,7 +6741,7 @@ function padronAplicar(exp){
    ============================================================ */
 
 const BITACORA_TAREAS = [
-  'Informe Jurídico',
+  'Informe Jurídico 1',
   'Resolución',
   'Notificación',
   'Verificación de Posesión Material',
@@ -6741,7 +6761,7 @@ const BITACORA_TAREAS = [
 /* Para «Tomar del formulario»: qué tarea corresponde a cada pestaña de
    documento y en qué campo está su número. */
 const BITACORA_DESDE_TAB = {
-  informe:         {nombre:'Informe Jurídico',                    num:null},
+  informe:         {nombre:'Informe Jurídico 1',                  num:null},
   resolucion:      {nombre:'Resolución',                          num:'resN'},
   notificacion:    {nombre:'Notificación',                        num:'ordN'},
   posesion:        {nombre:'Verificación de Posesión Material',    num:null},
@@ -6832,27 +6852,18 @@ function renderBitacora(){
   if(!state.bitacora.length){
     cont.innerHTML = '<div class="bit-vacio">Todavía no hay tareas registradas.<br>'
       + 'Usa «➕ Agregar tarea a expediente» para empezar.</div>';
+    renderBitacoraPreview();
     return;
   }
-  /* Se agrupa conservando el orden de aparición de cada expediente. */
-  const grupos = new Map();
-  state.bitacora.forEach((t,i)=>{
-    if(!grupos.has(t.exp)) grupos.set(t.exp, []);
-    grupos.get(t.exp).push(Object.assign({}, t, {_i:i}));
-  });
-
-  cont.innerHTML = Array.from(grupos.entries()).map(([exp, tareas])=>{
-    const reg = padronBuscar(exp);
-    const quien = reg && reg.solicitante ? reg.solicitante : '';
-    const orden = tareas.slice().sort((a,b)=> String(a.fecha).localeCompare(String(b.fecha)));
-    return `<div class="bit-exp">
+  cont.innerHTML = bitacoraAgrupada().map(({exp, quien, tareas})=>
+    `<div class="bit-exp">
       <div class="bit-exp-head">
         <span>Expediente ${escaparHtml(exp)}${quien ? ' <span class="quien">· ' + escaparHtml(quien) + '</span>' : ''}</span>
-        <span class="quien">${orden.length} tarea(s)</span>
+        <span class="quien">${tareas.length} tarea(s)</span>
       </div>
       <table class="bit-tbl">
         <thead><tr><th style="width:96px">Fecha</th><th>Tarea</th><th style="width:110px">N°</th><th>Observación</th><th style="width:34px"></th></tr></thead>
-        <tbody>${orden.map(t=>`<tr>
+        <tbody>${tareas.map(t=>`<tr>
           <td class="num">${escaparHtml(fechaCorta(t.fecha))}</td>
           <td>${escaparHtml(t.nombre)}</td>
           <td class="num">${escaparHtml(t.numero || '—')}</td>
@@ -6860,8 +6871,98 @@ function renderBitacora(){
           <td><button type="button" class="bit-del" title="Quitar" onclick="bitacoraEliminar(${t._i})">✕</button></td>
         </tr>`).join('')}</tbody>
       </table>
-    </div>`;
-  }).join('');
+    </div>`).join('');
+
+  renderBitacoraPreview();
+}
+
+/* ---------- Redacción en primera persona ----------
+   Cada tarea se cuenta como la escribiría quien la hizo: «Con fecha 20 de
+   agosto de 2026 elaboré Informe Jurídico 1.»
+
+   El verbo es siempre «elaboré». Se probó variarlo según la tarea (notifiqué,
+   despaché) y el resultado era peor: «notifiqué Notificación». Como el nombre
+   de la tarea ya dice qué se hizo, un verbo único y neutro se lee mejor y no
+   choca con los nombres que se escriban a mano. */
+const BITACORA_VERBO = 'elaboré';
+
+/* Cómo se cita el número según el tipo de documento, tal como lo numera el
+   propio generador: las resoluciones llevan "RES. EXENTA N°: E-", las
+   notificaciones "ORD. Nº: E-" y los oficios "ORD. N°SE07-". */
+function bitacoraCitaNumero(nombre, numero){
+  const n = String(numero == null ? '' : numero).trim();
+  if(!n) return '';
+  const t = String(nombre || '');
+  if(/^oficio/i.test(t))        return ', Ord. N° SE07-' + n;
+  if(/notificaci[oó]n/i.test(t)) return ', Ord. N° E-' + n;
+  if(/resoluci[oó]n/i.test(t))   return ', Res. Exenta N° E-' + n;
+  return ', N° ' + n;
+}
+
+function bitacoraRedaccion(t){
+  const fecha = /^\d{4}-\d{2}-\d{2}$/.test(String(t.fecha||''))
+    ? fechaProsa(t.fecha)
+    : String(t.fecha || '__ de ______ de ____');
+
+  /* La observación va como oración aparte, así que empieza con mayúscula y
+     termina en punto aunque se haya escrito sin ellos. */
+  let nota = '';
+  if(t.nota && String(t.nota).trim()){
+    const texto = String(t.nota).trim().replace(/\.+$/,'');
+    nota = ' ' + texto.charAt(0).toUpperCase() + texto.slice(1) + '.';
+  }
+
+  return 'Con fecha ' + fecha + ' ' + BITACORA_VERBO + ' ' + String(t.nombre||'').trim()
+       + bitacoraCitaNumero(t.nombre, t.numero) + '.' + nota;
+}
+
+/* Texto corrido de toda la bitácora, por expediente. Es lo que se ve en la
+   vista previa y lo que se copia. */
+function bitacoraTexto(){
+  const grupos = bitacoraAgrupada();
+  return grupos.map(({exp, quien, tareas})=>{
+    const cab = 'EXPEDIENTE ' + exp + (quien ? ' — ' + quien : '');
+    return cab + '\n' + tareas.map(t=> bitacoraRedaccion(t)).join('\n');
+  }).join('\n\n');
+}
+
+/* Agrupa por expediente conservando el orden de aparición, y ordena las tareas
+   de cada uno por fecha. Lo usan la tabla, la vista previa y el copiado. */
+function bitacoraAgrupada(){
+  const grupos = new Map();
+  state.bitacora.forEach((t,i)=>{
+    if(!grupos.has(t.exp)) grupos.set(t.exp, []);
+    grupos.get(t.exp).push(Object.assign({}, t, {_i:i}));
+  });
+  return Array.from(grupos.entries()).map(([exp, tareas])=>{
+    const reg = padronBuscar(exp);
+    return {
+      exp,
+      quien: (reg && reg.solicitante) ? reg.solicitante : '',
+      tareas: tareas.slice().sort((a,b)=> String(a.fecha).localeCompare(String(b.fecha)))
+    };
+  });
+}
+
+function renderBitacoraPreview(){
+  const cont = q('bitacoraPreview');
+  if(!cont) return;
+  const grupos = bitacoraAgrupada();
+  if(!grupos.length){
+    cont.innerHTML = '<div class="bit-vacio">Cuando registres tareas, aquí las verás redactadas.</div>';
+    return;
+  }
+  cont.innerHTML = grupos.map(({exp, quien, tareas})=>
+    `<div class="bit-red-exp">
+       <div class="bit-red-cab">EXPEDIENTE ${escaparHtml(exp)}${quien ? ' — ' + escaparHtml(quien) : ''}</div>
+       ${tareas.map(t=>`<p>${escaparHtml(bitacoraRedaccion(t))}</p>`).join('')}
+     </div>`).join('');
+}
+
+function bitacoraCopiarRedaccion(){
+  if(!state.bitacora.length){ q('bitStatus').textContent = 'No hay nada que copiar todavía.'; return; }
+  bitacoraAlPortapapeles(bitacoraTexto(),
+    '✓ Redacción copiada: ' + state.bitacora.length + ' tarea(s).');
 }
 
 /* Copia la bitácora completa separada por tabulaciones, lista para pegar en
@@ -6875,8 +6976,12 @@ function bitacoraCopiar(){
       const reg = padronBuscar(t.exp);
       lineas.push([t.exp, (reg && reg.solicitante) || '', fechaCorta(t.fecha), t.nombre, t.numero || '', t.nota || ''].join('\t'));
     });
-  const texto = lineas.join('\n');
-  const listo = ()=>{ q('bitStatus').textContent = '✓ Bitácora copiada: ' + state.bitacora.length + ' tarea(s). Pégala en Excel o en tu Word.'; };
+  bitacoraAlPortapapeles(lineas.join('\n'),
+    '✓ Tabla copiada: ' + state.bitacora.length + ' tarea(s). Pégala en Excel o en tu Word.');
+}
+
+function bitacoraAlPortapapeles(texto, mensaje){
+  const listo = ()=>{ q('bitStatus').textContent = mensaje; };
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(texto).then(listo, ()=>bitacoraCopiarRespaldo(texto, listo));
   } else {
