@@ -152,6 +152,8 @@
   .bit-exp-head .quien{font-weight:400;color:var(--gris-600);font-size:12px;}
   .bit-del{border:none;background:transparent;cursor:pointer;color:var(--rojo);font-size:14px;line-height:1;padding:0 4px;}
   .bit-vacio{padding:14px;color:var(--gris-600);font-size:13px;text-align:center;}
+  .bit-guardado{padding:5px 10px;background:var(--gris-100);border-bottom:1px solid var(--gris-200);
+    font-size:11px;color:var(--gris-600);}
   .bit-red-exp{margin-bottom:18px;}
   .bit-red-cab{font-weight:700;margin-bottom:6px;}
   .bit-red p{margin:0 0 4px;text-align:justify;}
@@ -5815,6 +5817,17 @@ function oficioDesdePadron(exp){
     return;
   }
 
+  /* Primero se vacían los campos propios del expediente. Si no se hiciera, al
+     pasar de un expediente a otro los datos que el nuevo no tenga quedarían con
+     los del anterior, y el oficio saldría con la dirección o la inscripción de
+     otra persona sin que se note. */
+  ['ofNombre','ofCi','ofUbicacion','ofSuperficie','ofRolAvaluo',
+   'ofFojas','ofNumInsc','ofAnioInsc'].forEach(id=>{ if(q(id)) q(id).value = ''; });
+  if(q('ofCbr')){
+    q('ofCbr').value = '';
+    sincronizarCbrSelect('ofCbrSelect','ofCbr');
+  }
+
   q('ofExpediente').value = r.exp;
   if(r.solicitante) q('ofNombre').value = r.solicitante;
   if(r.rut) q('ofCi').value = r.rut;
@@ -5832,6 +5845,22 @@ function oficioDesdePadron(exp){
   }
 
   if(r.superficie != null) q('ofSuperficie').value = numeroALocal(r.superficie, 2);
+
+  /* Lo que el padrón no tiene se busca en lo que quedó guardado al anotar las
+     tareas de este expediente en la bitácora. */
+  const extra = bitacoraDatosDe(r.exp);
+  const recuperados = [];
+  if(extra.ubicacion){ q('ofUbicacion').value = extra.ubicacion; recuperados.push('la dirección'); }
+  if(extra.fojas)    { q('ofFojas').value = extra.fojas; }
+  if(extra.numInsc)  { q('ofNumInsc').value = extra.numInsc; }
+  if(extra.anioInsc) { q('ofAnioInsc').value = extra.anioInsc; }
+  if(extra.fojas || extra.numInsc || extra.anioInsc) recuperados.push('la inscripción');
+  if(extra.cbr){
+    q('ofCbr').value = extra.cbr;
+    sincronizarCbrSelect('ofCbrSelect','ofCbr');
+    recuperados.push('el Conservador');
+  }
+  if(extra.rolAvaluo && !r.rol) q('ofRolAvaluo').value = extra.rolAvaluo;
 
   /* El desplegable del oficio ofrece menos modos que el del Informe, así que
      sólo se fija cuando existe la opción. Si no existe se deja lo que hubiera y
@@ -5856,7 +5885,8 @@ function oficioDesdePadron(exp){
     aviso.style.display = 'block';
     aviso.innerHTML = '<b>' + escaparHtml(r.exp) + '</b>'
       + (r.solicitante ? ' — ' + escaparHtml(r.solicitante) : '') + '. '
-      + 'Falta: ' + escaparHtml(faltan.join('; ')) + '.';
+      + (recuperados.length ? 'De la bitácora se recuperó ' + escaparHtml(recuperados.join(', ')) + '. ' : '')
+      + (faltan.length ? 'Falta: ' + escaparHtml(faltan.join('; ')) + '.' : 'Está todo.');
   }
   generarOficioPreview();
   guardarTodo();
@@ -5875,17 +5905,21 @@ function masivoAgregarDesdePadron(){
     return;
   }
   const comunaMay = upper(r.comuna);
+  /* La dirección y la inscripción no están en el padrón, pero sí pueden estar
+     guardadas en la bitácora de este expediente. Si no lo están, la celda queda
+     en blanco a propósito: esta tabla se imprime tal cual en el oficio, así que
+     es mejor que el hueco se vea que enviar media dirección. */
+  const extra = bitacoraDatosDe(r.exp);
+  const rol = r.rol || extra.rolAvaluo || '';
   state.masivoFilas.push({
     exp: r.exp,
     rut: r.rut,
     solicitante: upper(r.solicitante),
-    /* La dirección se deja en blanco a propósito: el padrón no la tiene y esta
-       tabla se imprime tal cual en el oficio, así que es mejor que el hueco se
-       vea que enviar media dirección. La comuna igual queda a la vista en el
-       rol. */
-    ubicacion: '',
-    rol: r.rol ? ('ROL N°' + r.rol + (comunaMay ? ', ' + comunaMay : '') + '.') : '',
-    inscripcion: ''
+    ubicacion: extra.ubicacion
+      ? upper(extra.ubicacion) + (comunaMay ? ', ' + comunaMay + '.' : '')
+      : '',
+    rol: rol ? ('ROL N°' + rol + (comunaMay ? ', ' + comunaMay : '') + '.') : '',
+    inscripcion: inscripcionTexto(extra)
   });
   if(r.comuna && !val('ofMasComuna')) calzarOpcion('ofMasComuna', r.comuna);
   q('ofMasExpPadron').value = '';
@@ -6939,6 +6973,47 @@ const BITACORA_DESDE_TAB = {
   notificacionRep: {nombre:'Notificación Reposición',               num:'repOrdN', signo:'REP'}
 };
 
+/* ---------- Datos del expediente que el padrón no trae ----------
+   La tabla de la unidad no tiene la dirección del inmueble ni la inscripción
+   conservatoria, que es justamente lo que el oficio cita. Pero al trabajar un
+   expediente esos datos SÍ están escritos en el formulario, así que cada vez que
+   se anota una tarea nueva se guardan con ella. Después, al hacer el oficio del
+   mismo expediente, se recuperan solos.
+
+   Sólo se guardan en las tareas nuevas: las que vienen de importar el padrón no
+   tienen de dónde sacarlos. */
+const BITACORA_DATOS_CAMPOS = ['ubicacion','fojas','numInsc','anioInsc','cbr','rolAvaluo'];
+
+function bitacoraCapturarDatos(){
+  const datos = {};
+  BITACORA_DATOS_CAMPOS.forEach(k=>{
+    const v = val(k);
+    if(v) datos[k] = v;
+  });
+  return Object.keys(datos).length ? datos : null;
+}
+
+/* Reúne lo capturado para un expediente. Se recorre en orden, de modo que si un
+   dato se anotó más de una vez queda el de la anotación más reciente. */
+function bitacoraDatosDe(exp){
+  const clave = String(exp == null ? '' : exp).trim();
+  const salida = {};
+  state.bitacora.forEach(t=>{
+    if(t.exp !== clave || !t.datos) return;
+    BITACORA_DATOS_CAMPOS.forEach(k=>{ if(t.datos[k]) salida[k] = t.datos[k]; });
+  });
+  return salida;
+}
+
+/* Texto de la inscripción como la escribe la unidad en la tabla del oficio. */
+function inscripcionTexto(d){
+  if(!d.fojas && !d.numInsc && !d.anioInsc && !d.cbr) return '';
+  return 'FOJAS ' + blank(d.fojas,'____') + ', Nº ' + blank(d.numInsc,'____')
+       + ' DEL AÑO ' + blank(d.anioInsc,'____')
+       + ' DEL REGISTRO DE PROPIEDAD'
+       + ' DEL CBR DE ' + upper(blank(d.cbr,'____________')) + '.';
+}
+
 /* Arma la tarea que corresponde a un documento del generador: su nombre con el
    signo anotado como lo hace la unidad en su tabla, y el número que lleva. */
 function bitacoraTareaDeTab(tab){
@@ -6972,18 +7047,23 @@ function bitacoraAgregarDesdeDocumento(){
     return;
   }
 
+  /* Se guardan con la tarea la dirección y la inscripción conservatoria que
+     estén escritas, para que el oficio de este expediente las tenga después. */
+  const datos = bitacoraCapturarDatos();
   state.bitacora.push({
     exp: exp,
     fecha: new Date().toISOString().slice(0,10),
     nombre: tarea.nombre,
     numero: tarea.numero,
     nota: '',
-    origen: 'manual'
+    origen: 'manual',
+    datos: datos
   });
   renderBitacora();
   guardarTodo();
+  const guardados = datos ? Object.keys(datos).length : 0;
   linea.textContent = '✓ «' + tarea.nombre + '» anotado hoy en la bitácora del expediente ' + exp
-    + '. Puedes verlo en la pestaña Bitácora.';
+    + (guardados ? '. Se guardaron ' + guardados + ' dato(s) del expediente para los oficios.' : '.');
 }
 
 function initBitacora(){
@@ -7115,18 +7195,27 @@ function bitacoraAgregar(){
   const nombre = val('bitNombre');
   if(!nombre){ q('bitStatus').textContent = 'Elige la tarea o documento realizado.'; return; }
 
+  /* Los datos del formulario se guardan SÓLO si la tarea es de ese mismo
+     expediente: si se está anotando otro, pertenecen a un expediente distinto. */
+  const mismoExp = exp === val('expN');
+  const datos = mismoExp ? bitacoraCapturarDatos() : null;
+
   state.bitacora.push({
     exp: exp,
     fecha: val('bitFecha') || new Date().toISOString().slice(0,10),
     nombre: nombre,
     numero: val('bitNumero'),
-    nota: val('bitNota')
+    nota: val('bitNota'),
+    origen: 'manual',
+    datos: datos
   });
   q('bitNumero').value = '';
   q('bitNota').value = '';
   renderBitacora();
   guardarTodo();
-  q('bitStatus').textContent = '✓ Tarea agregada al expediente ' + exp + '.';
+  q('bitStatus').textContent = '✓ Tarea agregada al expediente ' + exp + '.'
+    + (datos ? ' Se guardaron los datos del expediente para los oficios.' : '')
+    + (!mismoExp && val('expN') ? ' No se guardaron los datos del formulario: son del expediente ' + val('expN') + '.' : '');
 }
 
 function bitacoraEliminar(i){
@@ -7145,12 +7234,25 @@ function renderBitacora(){
     renderBitacoraPreview();
     return;
   }
-  cont.innerHTML = bitacoraAgrupada().map(({exp, quien, tareas})=>
-    `<div class="bit-exp">
+  cont.innerHTML = bitacoraAgrupada().map(({exp, quien, tareas})=>{
+    /* Se muestra lo que quedó guardado para los oficios, así se ve de inmediato
+       si el expediente ya tiene su inscripción y su dirección. */
+    const d = bitacoraDatosDe(exp);
+    const piezas = [];
+    if(d.ubicacion) piezas.push(escaparHtml(d.ubicacion));
+    const insc = inscripcionTexto(d);
+    if(insc) piezas.push(escaparHtml(insc.replace(/\.$/,'')));
+    if(d.rolAvaluo) piezas.push('ROL ' + escaparHtml(d.rolAvaluo));
+    const guardado = piezas.length
+      ? `<div class="bit-guardado">Guardado para los oficios: ${piezas.join(' · ')}</div>`
+      : '';
+
+    return `<div class="bit-exp">
       <div class="bit-exp-head">
         <span>Expediente ${escaparHtml(exp)}${quien ? ' <span class="quien">· ' + escaparHtml(quien) + '</span>' : ''}</span>
         <span class="quien">${tareas.length} tarea(s)</span>
       </div>
+      ${guardado}
       <table class="bit-tbl">
         <thead><tr><th style="width:96px">Fecha</th><th>Tarea</th><th style="width:110px">N°</th><th>Observación</th><th style="width:34px"></th></tr></thead>
         <tbody>${tareas.map(t=>`<tr>
@@ -7161,7 +7263,8 @@ function renderBitacora(){
           <td><button type="button" class="bit-del" title="Quitar" onclick="bitacoraEliminar(${t._i})">✕</button></td>
         </tr>`).join('')}</tbody>
       </table>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   renderBitacoraPreview();
 }
