@@ -437,6 +437,9 @@
     </nav>
     <div class="save-bar">
       <span id="avisoGuardado" title="Todo lo que escribes se guarda en este navegador.">Sin cambios guardados aún</span>
+      <span id="respaldoArchivo" class="hint"></span>
+      <button type="button" onclick="guardarRespaldo()" title="Guarda TODO el progreso en un archivo del disco: expedientes, bitácora, documentos y ediciones. La primera vez pregunta dónde; después reescribe el mismo archivo.">💾 Guardar</button>
+      <button type="button" onclick="abrirRespaldo()" title="Carga un archivo de respaldo y deja la herramienta tal como estaba">📂 Abrir</button>
       <button type="button" onclick="borrarGuardado()" title="Borra absolutamente todo lo guardado y deja la herramienta como recién abierta">🗑 Iniciar de nuevo</button>
     </div>
   </div>
@@ -7726,13 +7729,231 @@ function guardarAhora(){
       }
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(datos));
+    _ultimoRespaldo = datos;
     marcarGuardado(datos.guardadoEn);
+    /* Si ya se eligió un archivo de respaldo, se escribe también en él, de modo
+       que el progreso no quede sólo en este navegador. */
+    if(_archivoRespaldo) respaldoEscribirArchivo();
   } catch(err){
     // cuota llena, modo privado, etc.: no se interrumpe el trabajo
     console.warn('No se pudo guardar el borrador:', err);
     const av = q('avisoGuardado');
     if(av) av.textContent = '⚠ No se pudo guardar en este navegador';
   }
+}
+
+/* ============================================================
+   RESPALDO EN UN ARCHIVO
+   El guardado automático vive en este navegador, y eso se pierde al cambiar de
+   computador, de navegador, o al pasarle la herramienta a otra persona. Con
+   «Guardar» el progreso completo queda además en un archivo del disco —que puede
+   estar en OneDrive— y con «Abrir» se recupera tal cual.
+
+   Los navegadores actuales permiten conservar el archivo elegido y reescribirlo,
+   así que después de elegirlo una vez, «Guardar» sobrescribe siempre el mismo sin
+   volver a preguntar, y el guardado automático también lo actualiza.
+   ============================================================ */
+
+let _archivoRespaldo = null;      // handle del archivo elegido
+let _ultimoRespaldo = null;       // últimos datos serializados
+const RESPALDO_NOMBRE = 'Generador_DL2695_respaldo.json';
+const RESPALDO_IDB = 'dl2695_respaldo';
+
+function soportaArchivos(){
+  return typeof window.showSaveFilePicker === 'function'
+      && typeof window.showOpenFilePicker === 'function';
+}
+
+/* El handle se guarda en IndexedDB, que es el único almacén que los acepta, para
+   volver a usar el mismo archivo la próxima vez sin tener que buscarlo. */
+function idbRespaldo(modo, valor){
+  return new Promise((resolve)=>{
+    let pedido;
+    try{ pedido = indexedDB.open(RESPALDO_IDB, 1); }
+    catch(err){ resolve(null); return; }
+    pedido.onupgradeneeded = ()=>{ pedido.result.createObjectStore('handles'); };
+    pedido.onerror = ()=> resolve(null);
+    pedido.onsuccess = ()=>{
+      const db = pedido.result;
+      let tx;
+      try{ tx = db.transaction('handles', modo === 'leer' ? 'readonly' : 'readwrite'); }
+      catch(err){ resolve(null); return; }
+      const store = tx.objectStore('handles');
+      const op = (modo === 'leer') ? store.get('archivo')
+               : (modo === 'borrar') ? store.delete('archivo')
+               : store.put(valor, 'archivo');
+      op.onsuccess = ()=> resolve(modo === 'leer' ? op.result : true);
+      op.onerror = ()=> resolve(null);
+    };
+  });
+}
+
+function respaldoJson(){
+  /* Se toma lo último guardado; si aún no hay nada, se guarda ahora mismo. */
+  if(!_ultimoRespaldo){
+    try{ _ultimoRespaldo = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }
+    catch(err){ _ultimoRespaldo = null; }
+  }
+  return JSON.stringify(_ultimoRespaldo, null, 1);
+}
+
+async function respaldoEscribirArchivo(){
+  if(!_archivoRespaldo) return false;
+  try{
+    const permiso = await _archivoRespaldo.queryPermission({mode:'readwrite'});
+    if(permiso !== 'granted') return false;
+    const w = await _archivoRespaldo.createWritable();
+    await w.write(respaldoJson());
+    await w.close();
+    respaldoMostrarArchivo();
+    return true;
+  } catch(err){
+    console.warn('No se pudo escribir el respaldo:', err);
+    return false;
+  }
+}
+
+function respaldoMostrarArchivo(){
+  const el = q('respaldoArchivo');
+  if(!el) return;
+  el.textContent = _archivoRespaldo ? ' · en ' + _archivoRespaldo.name : '';
+}
+
+/* «Guardar»: la primera vez pregunta dónde; después reescribe el mismo archivo. */
+async function guardarRespaldo(){
+  guardarAhora();                     // que lo del archivo sea lo más reciente
+
+  if(!soportaArchivos()){
+    /* Navegadores sin acceso a archivos: se descarga una copia. */
+    const blob = new Blob([respaldoJson()], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = RESPALDO_NOMBRE;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    q('avisoGuardado').textContent = '✓ Respaldo descargado';
+    return;
+  }
+
+  try{
+    if(!_archivoRespaldo){
+      _archivoRespaldo = await window.showSaveFilePicker({
+        suggestedName: RESPALDO_NOMBRE,
+        types: [{description:'Respaldo del generador', accept:{'application/json':['.json']}}]
+      });
+      await idbRespaldo('guardar', _archivoRespaldo);
+    }
+    const ok = await respaldoEscribirArchivo();
+    q('avisoGuardado').textContent = ok
+      ? '✓ Guardado en ' + _archivoRespaldo.name
+      : '⚠ No se pudo escribir el archivo';
+  } catch(err){
+    /* Si se cierra el cuadro de diálogo no es un error. */
+    if(err && err.name === 'AbortError') return;
+    console.error(err);
+    q('avisoGuardado').textContent = '⚠ No se pudo guardar: ' + err.message;
+  }
+}
+
+/* «Abrir»: carga un respaldo y deja la herramienta tal como estaba. */
+async function abrirRespaldo(){
+  try{
+    let archivo;
+    if(soportaArchivos()){
+      const [h] = await window.showOpenFilePicker({
+        types: [{description:'Respaldo del generador', accept:{'application/json':['.json']}}]
+      });
+      _archivoRespaldo = h;
+      await idbRespaldo('guardar', h);
+      archivo = await h.getFile();
+    } else {
+      archivo = await new Promise((resolve)=>{
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = '.json,application/json';
+        inp.onchange = ()=> resolve(inp.files && inp.files[0]);
+        inp.click();
+      });
+      if(!archivo) return;
+    }
+    await respaldoAplicarArchivo(archivo, true);
+  } catch(err){
+    if(err && err.name === 'AbortError') return;
+    console.error(err);
+    q('avisoGuardado').textContent = '⚠ No se pudo abrir: ' + err.message;
+  }
+}
+
+/* Valida el respaldo y lo deja como borrador de este navegador; luego recarga,
+   de modo que todo se reconstruya por el mismo camino que al abrir la
+   herramienta y no quede nada a medio actualizar. */
+async function respaldoAplicarArchivo(archivo, confirmar){
+  const texto = await archivo.text();
+  let datos;
+  try{ datos = JSON.parse(texto); }
+  catch(err){ alert('Ese archivo no es un respaldo válido: no se pudo leer su contenido.'); return false; }
+  if(!datos || !datos.campos){ alert('Ese archivo no parece un respaldo del generador.'); return false; }
+
+  if(confirmar){
+    const cuando = datos.guardadoEn ? new Date(datos.guardadoEn).toLocaleString() : 'sin fecha';
+    const cuantos = (datos.estado && datos.estado.padron) ? datos.estado.padron.length : 0;
+    const tareas = (datos.estado && datos.estado.bitacora) ? datos.estado.bitacora.length : 0;
+    if(!confirm('Se va a cargar el respaldo del ' + cuando + '.\n\n'
+      + 'Contiene ' + cuantos + ' expediente(s) en el padrón y ' + tareas + ' tarea(s) de bitácora.\n\n'
+      + 'Reemplazará lo que tengas ahora en este navegador. ¿Continuar?')) return false;
+  }
+  respaldoInstalarYRecargar(datos);
+  return true;
+}
+
+/* Deja el respaldo como borrador de este navegador y recarga.
+
+   Hay que frenar el guardado automático antes de recargar: al descargar la
+   página se dispara un último guardado que escribiría el estado que está en
+   memoria —el de antes de importar— encima de lo que acabamos de instalar, y el
+   respaldo se perdería sin dejar rastro. */
+function respaldoInstalarYRecargar(datos){
+  _borrando = true;
+  clearTimeout(_guardarTimer);
+  window.removeEventListener('beforeunload', guardarAhora);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(datos));
+  location.reload();
+}
+
+/* Al abrir la herramienta se revisa el archivo de respaldo que quedó asociado:
+   si trae cambios más recientes que los de este navegador —porque se trabajó en
+   otro equipo y OneDrive lo sincronizó— se ofrece cargarlos. */
+async function respaldoRevisarAlAbrir(){
+  if(!soportaArchivos()) return;
+  const h = await idbRespaldo('leer');
+  if(!h) return;
+  _archivoRespaldo = h;
+  respaldoMostrarArchivo();
+  try{
+    if(await h.queryPermission({mode:'readwrite'}) !== 'granted') return;
+    const archivo = await h.getFile();
+    const datos = JSON.parse(await archivo.text());
+    if(!datos || !datos.campos) return;
+
+    let local = null;
+    try{ local = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch(err){ /* ilegible */ }
+    const delArchivo = datos.guardadoEn || '';
+    const deAqui = (local && local.guardadoEn) || '';
+    if(delArchivo && delArchivo > deAqui){
+      if(confirm('El archivo ' + h.name + ' tiene cambios más recientes ('
+        + new Date(delArchivo).toLocaleString() + ') que los de este navegador.\n\n¿Cargarlos?')){
+        respaldoInstalarYRecargar(datos);
+      }
+    }
+  } catch(err){
+    console.warn('No se pudo revisar el respaldo:', err);
+  }
+}
+
+async function olvidarRespaldo(){
+  _archivoRespaldo = null;
+  await idbRespaldo('borrar');
+  respaldoMostrarArchivo();
+  q('avisoGuardado').textContent = 'Ya no está asociado a ningún archivo';
 }
 
 function marcarGuardado(iso){
@@ -7955,8 +8176,13 @@ function aplicarCamposGuardadosEn(selectorZona){
    ------------------------------------------------------------------ */
 let _borrando = false;
 
-function borrarGuardado(){
-  if(!confirm('Se borrará TODO: solicitantes, datos del expediente, observaciones, motivos, los párrafos que hayas editado a mano y las filas del oficio masivo.\n\nLa herramienta quedará como recién abierta.\n\n¿Continuar?')) return;
+async function borrarGuardado(){
+  if(!confirm('Se borrará TODO: solicitantes, datos del expediente, observaciones, motivos, '
+    + 'los párrafos que hayas editado a mano, las filas del oficio masivo, el padrón de '
+    + 'expedientes y la bitácora.\n\n'
+    + 'También se dejará de usar el archivo de respaldo, aunque el archivo en sí NO se borra: '
+    + 'puedes volver a cargarlo con «Abrir».\n\n'
+    + 'La herramienta quedará como recién abierta.\n\n¿Continuar?')) return;
 
   _borrando = true;
   clearTimeout(_guardarTimer);
@@ -8012,6 +8238,12 @@ function borrarGuardado(){
   /* 4) se deja una marca para avisar, tras la recarga, que quedó todo en blanco */
   try{ sessionStorage.setItem('dl2695_reiniciado','1'); } catch(err){ /* modo privado */ }
 
+  /* 4b) se suelta el archivo de respaldo ANTES de recargar. Si no, al volver a
+         abrir se vería que el archivo tiene datos más nuevos que este navegador
+         —que quedó vacío— y se ofrecería recargarlos, deshaciendo el reinicio. */
+  _archivoRespaldo = null;
+  await idbRespaldo('borrar');
+
   /* 5) y se recarga para volver al estado inicial exacto (valores por defecto
         del formulario, pestaña Informe, vista previa en blanco) */
   location.reload();
@@ -8061,6 +8293,8 @@ aplicarSentidoBUI();
 aplicarSentidoRepUI();
 renderPadronSelect();
 renderOrdenMotivos();
+/* Se revisa si el archivo de respaldo asociado trae cambios más nuevos. */
+respaldoRevisarAlAbrir();
 initSuperficies();
 calcular();
 generar();
