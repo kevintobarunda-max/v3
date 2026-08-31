@@ -1500,6 +1500,19 @@
         </div>
       </fieldset>
 
+      <!-- ---- Traer del padrón ---- -->
+      <fieldset id="ofPadronBloque" style="display:none">
+        <legend>Traer los datos de un expediente</legend>
+        <div class="field">
+          <label>Elegir del padrón <span class="hint">· <span id="ofPadronCuenta">0</span> expedientes</span></label>
+          <select id="ofPadronSelect" onchange="oficioDesdePadron(this.value)"></select>
+        </div>
+        <p class="hint" style="margin:4px 0 0">
+          También puedes escribir el número en «N° de Expediente» y se traen solos.
+        </p>
+        <p class="hint" id="ofPadronAviso" style="margin:6px 0 0;display:none"></p>
+      </fieldset>
+
       <!-- ============ OFICIO MASIVO ============ -->
       <fieldset id="ofFieldsetMasivo" style="display:none">
         <legend>Oficio masivo — destinatario</legend>
@@ -1538,6 +1551,12 @@
         <div class="btn-row" style="margin-top:0;margin-bottom:8px">
           <button type="button" class="btn btn-primary btn-sm" onclick="masivoAgregarDesdeInforme()">↓ Agregar el expediente del Informe</button>
           <button type="button" class="btn btn-outline btn-sm" onclick="masivoAgregarFila()">+ Fila vacía</button>
+        </div>
+        <!-- Agregar un expediente del padrón directamente a la lista del oficio. -->
+        <div class="btn-row" id="ofMasPadronFila" style="margin-top:0;margin-bottom:8px;display:none">
+          <input type="text" id="ofMasExpPadron" placeholder="N° expediente del padrón"
+                 data-fmt="digits" list="padronLista" style="max-width:190px">
+          <button type="button" class="btn btn-outline btn-sm" onclick="masivoAgregarDesdePadron()">↓ Agregar desde el padrón</button>
         </div>
         <div class="btn-row" style="margin-top:0;margin-bottom:8px">
           <button type="button" class="btn btn-outline btn-sm" onclick="masivoPegar()">📋 Pegar desde Excel</button>
@@ -1591,7 +1610,12 @@
         </div>
         <div class="grid2">
           <div class="field"><label>C.I. N°</label><input type="text" id="ofCi" placeholder="" data-fmt="rut"></div>
-          <div class="field"><label>N° de Expediente</label><input type="text" id="ofExpediente" placeholder="" data-fmt="digits"></div>
+          <!-- Al escribir o elegir un expediente que esté en el padrón, se traen
+               sus datos. -->
+          <div class="field"><label>N° de Expediente</label>
+            <input type="text" id="ofExpediente" placeholder="" data-fmt="digits"
+                   list="padronLista" onchange="oficioDesdePadron(this.value)">
+          </div>
         </div>
       </fieldset>
 
@@ -5503,6 +5527,7 @@ function renderOficioTipo(){
   q('ofFieldTrioNums').style.display       = (tipo === 'conservador') ? 'none' : 'block';
   // el campo de fecha queda siempre oculto: los oficios se emiten sin fecha
 
+  renderOficioPadron();
   if(masivo) renderMasivoFilas();
   generarOficioPreview();
 }
@@ -5775,6 +5800,118 @@ function datosOficioMasivo(){
       inscripcion: blank(f.inscripcion,'—')
     }))
   };
+}
+
+/* ---------- Oficios a partir del padrón ----------
+   Al escribir o elegir un expediente que está en el padrón se traen sus datos.
+   El padrón no lo tiene todo: la dirección del inmueble y la inscripción
+   conservatoria no están en la tabla, y son justamente lo que el oficio cita.
+   Así que en lugar de dejarlo pasar en silencio, se dice qué quedó pendiente. */
+function oficioDesdePadron(exp){
+  const r = padronBuscar(exp);
+  const aviso = q('ofPadronAviso');
+  if(!r){
+    if(aviso) aviso.style.display = 'none';
+    return;
+  }
+
+  q('ofExpediente').value = r.exp;
+  if(r.solicitante) q('ofNombre').value = r.solicitante;
+  if(r.rut) q('ofCi').value = r.rut;
+  if(r.rol) q('ofRolAvaluo').value = r.rol;
+
+  const faltan = [];
+  if(r.comuna){
+    if(calzarOpcion('ofComuna', r.comuna)){
+      onOfComunaChange();
+      calzarOpcion('ofComunaDom', r.comuna);
+      if(q('ofMasComuna') && !val('ofMasComuna')) calzarOpcion('ofMasComuna', r.comuna);
+    } else {
+      faltan.push('la comuna «' + r.comuna + '» no está en la lista');
+    }
+  }
+
+  if(r.superficie != null) q('ofSuperficie').value = numeroALocal(r.superficie, 2);
+
+  /* El desplegable del oficio ofrece menos modos que el del Informe, así que
+     sólo se fija cuando existe la opción. Si no existe se deja lo que hubiera y
+     se dice cuál es, porque si no el oficio saldría con el modo del expediente
+     anterior sin que se note. */
+  if(r.modo && !calzarOpcion('ofModoAdq', r.modo)){
+    const sel = q('ofModoAdq');
+    const actual = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].text : '';
+    faltan.push('el modo de adquisición es «' + (r.modoTexto || r.modo)
+      + '», que no está en la lista del oficio: ahora dice «' + actual + '», corrígelo');
+  }
+
+  /* Lo que el padrón no trae y el oficio necesita. */
+  if(!val('ofUbicacion')) faltan.push('la dirección del inmueble');
+  if(!val('ofFojas') && !val('ofNumInsc') && !val('ofAnioInsc')) faltan.push('la inscripción conservatoria (fojas, N° y año)');
+  if(!val('ofCbr')) faltan.push('el Conservador');
+  faltan.push('revisa el género para el trato de don/doña');
+
+  const sel = q('ofPadronSelect');
+  if(sel) sel.value = '';
+  if(aviso){
+    aviso.style.display = 'block';
+    aviso.innerHTML = '<b>' + escaparHtml(r.exp) + '</b>'
+      + (r.solicitante ? ' — ' + escaparHtml(r.solicitante) : '') + '. '
+      + 'Falta: ' + escaparHtml(faltan.join('; ')) + '.';
+  }
+  generarOficioPreview();
+  guardarTodo();
+}
+
+/* Agrega a la lista del oficio masivo un expediente del padrón. La ubicación y
+   la inscripción quedan en blanco porque la tabla no las tiene: se completan en
+   la propia fila. */
+function masivoAgregarDesdePadron(){
+  const exp = val('ofMasExpPadron');
+  const r = padronBuscar(exp);
+  if(!r){
+    q('ofStatus').textContent = exp
+      ? 'El expediente ' + exp + ' no está en el padrón.'
+      : 'Escribe el N° de expediente que quieres agregar.';
+    return;
+  }
+  const comunaMay = upper(r.comuna);
+  state.masivoFilas.push({
+    exp: r.exp,
+    rut: r.rut,
+    solicitante: upper(r.solicitante),
+    /* La dirección se deja en blanco a propósito: el padrón no la tiene y esta
+       tabla se imprime tal cual en el oficio, así que es mejor que el hueco se
+       vea que enviar media dirección. La comuna igual queda a la vista en el
+       rol. */
+    ubicacion: '',
+    rol: r.rol ? ('ROL N°' + r.rol + (comunaMay ? ', ' + comunaMay : '') + '.') : '',
+    inscripcion: ''
+  });
+  if(r.comuna && !val('ofMasComuna')) calzarOpcion('ofMasComuna', r.comuna);
+  q('ofMasExpPadron').value = '';
+  renderMasivoFilas();
+  guardarTodo();
+  generarOficioPreview();
+  q('ofStatus').textContent = '✓ Expediente ' + r.exp + ' agregado. Ya son '
+    + state.masivoFilas.length + ' en el oficio. Completa la dirección y la inscripción en su fila.';
+}
+
+/* Muestra u oculta los atajos del padrón según haya expedientes cargados. */
+function renderOficioPadron(){
+  const hay = state.padron.length > 0;
+  const bloque = q('ofPadronBloque');
+  if(bloque) bloque.style.display = hay ? 'block' : 'none';
+  const fila = q('ofMasPadronFila');
+  if(fila) fila.style.display = (hay && val('ofTipo') === 'masivo') ? 'flex' : 'none';
+  const cuenta = q('ofPadronCuenta');
+  if(cuenta) cuenta.textContent = state.padron.length;
+
+  const sel = q('ofPadronSelect');
+  if(sel){
+    const orden = state.padron.slice().sort((a,b)=> a.exp.localeCompare(b.exp,'es',{numeric:true}));
+    sel.innerHTML = '<option value="">— elegir expediente —</option>'
+      + orden.map(r=>`<option value="${escaparHtml(r.exp)}">${escaparHtml(r.exp + (r.solicitante ? ' — ' + r.solicitante : ''))}</option>`).join('');
+  }
 }
 
 function autocompletarOficios(){
@@ -6586,6 +6723,7 @@ function padronRecalcular(){
   renderPadronMapeo();
   renderPadronPreview();
   renderPadronSelect();
+  if(state.oficiosInit) renderOficioPadron();
   renderBitacora();
   guardarTodo();
 
@@ -6609,6 +6747,7 @@ function padronVaciar(){
   state.padronTabla = null;
   state.padronArchivo = '';
   renderPadronSelect();
+  if(state.oficiosInit) renderOficioPadron();
   renderBitacora();
   guardarTodo();
   q('padronMapeoBloque').style.display = 'none';
